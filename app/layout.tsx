@@ -3,58 +3,62 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "BKC Home - Inmobiliaria en Alcorcón",
+  title: "BKC Home - Inmobiliaria en Alcorcón y zona sur",
   description:
-    "BKC Home, tu inmobiliaria en Alcorcón y zona sur de Madrid. Te ayudamos a vender, comprar y financiar tu vivienda.",
+    "BKC Home, tu inmobiliaria en Alcorcón y zona sur de Madrid. Te ayudamos a vender, comprar y financiar tu vivienda con un trato cercano y transparente.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-slate-950 text-slate-50">
+      <body className="min-h-screen bg-slate-50 text-slate-900">
         {/* CABECERA */}
-        <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-6">
             <a href="/" className="text-lg font-semibold tracking-tight">
-              <span className="text-emerald-400">BKC</span>{" "}
-              <span className="text-slate-100">Home</span>
+              <span className="text-slate-900">BKC</span>{" "}
+              <span className="text-slate-500">Home</span>
             </a>
 
-            <nav className="flex gap-4 text-sm text-slate-300">
-              <a href="/vender" className="hover:text-emerald-400">
+            <nav className="hidden md:flex gap-5 text-sm text-slate-600">
+              <a href="/vender" className="hover:text-slate-900">
                 Vender
               </a>
-              <a href="/comprar" className="hover:text-emerald-400">
+              <a href="/comprar" className="hover:text-slate-900">
                 Comprar
               </a>
-              <a href="/hipotecas" className="hover:text-emerald-400">
+              <a href="/hipotecas" className="hover:text-slate-900">
                 Hipotecas
               </a>
-              <a
-                href="/valora-tu-vivienda"
-                className="px-3 py-1 rounded-full border border-emerald-500 text-emerald-400 text-xs hover:bg-emerald-500/10"
-              >
-                Valora tu vivienda
+              <a href="/quienes-somos" className="hover:text-slate-900">
+                Quiénes somos
+              </a>
+              <a href="/contacto" className="hover:text-slate-900">
+                Contacto
               </a>
             </nav>
+
+            <a
+              href="/valora-tu-vivienda"
+              className="hidden md:inline-flex px-4 py-2 rounded-full border border-slate-800 text-sm font-medium text-slate-800 hover:bg-slate-900 hover:text-white transition"
+            >
+              Valora tu vivienda
+            </a>
           </div>
         </header>
 
-        {/* CONTENIDO PRINCIPAL */}
+        {/* CONTENIDO */}
         <main>{children}</main>
 
         {/* FOOTER */}
-        <footer className="mt-10 border-t border-slate-800">
-          <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-slate-500 flex justify-between gap-4 flex-wrap">
-            <span>
-              © {new Date().getFullYear()} BKC Home. Todos los derechos
-              reservados.
-            </span>
+        <footer className="mt-16 border-t border-slate-200 bg-white">
+          <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
+            <span>© {new Date().getFullYear()} BKC Home. Todos los derechos reservados.</span>
             <div className="flex gap-4">
-              <a href="/aviso-legal" className="hover:text-emerald-400">
+              <a href="/aviso-legal" className="hover:text-slate-800">
                 Aviso legal
               </a>
-              <a href="/privacidad" className="hover:text-emerald-400">
+              <a href="/privacidad" className="hover:text-slate-800">
                 Política de privacidad
               </a>
             </div>
