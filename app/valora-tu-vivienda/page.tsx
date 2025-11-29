@@ -533,7 +533,7 @@ export default function ValoraTuViviendaPage() {
                   Quiero una valoración más precisa y gratuita
                 </button>
                 <a
-                  href="https://wa.me/34XXXXXXXXX" // aquí pones tu WhatsApp
+                  href="https://wa.me/34617476695" // aquí pones tu WhatsApp
                   className="flex-1 px-5 py-3 rounded-2xl border border-slate-700 text-sm font-medium text-center"
                 >
                   Escríbenos por WhatsApp
@@ -546,4 +546,3 @@ export default function ValoraTuViviendaPage() {
     </main>
   );
 }
-app/valora-tu-vivienda/page.tsx
