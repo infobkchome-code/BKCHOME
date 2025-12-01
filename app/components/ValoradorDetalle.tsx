@@ -15,6 +15,9 @@ const ZONAS = [
   { key: "otro", label: "Otra zona (manual)", eurM2: 2600 },
 ] as const;
 
+type ZonaKey = (typeof ZONAS)[number]["key"];
+type Estado = "reformar" | "normal" | "reformado";
+
 function eur(n: number) {
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
@@ -23,12 +26,18 @@ function eur(n: number) {
   }).format(isNaN(n) ? 0 : n);
 }
 
-type Estado = "reformar" | "normal" | "reformado";
-
-const ZONA_KEYS = new Set(ZONAS.map((z) => z.key));
+const ZONA_KEYS = new Set<ZonaKey>(ZONAS.map((z) => z.key));
 const ESTADOS = new Set<Estado>(["reformar", "normal", "reformado"]);
 
-function asBool(v: string | null) {
+function isZonaKey(v: string | null): v is ZonaKey {
+  return !!v && (ZONA_KEYS as Set<string>).has(v);
+}
+
+function isEstado(v: string | null): v is Estado {
+  return !!v && (ESTADOS as Set<string>).has(v);
+}
+
+function asBool(v: string) {
   return v === "1" || v === "true" || v === "yes";
 }
 
@@ -44,7 +53,7 @@ export default function ValoradorDetalle() {
   const [step, setStep] = useState<1 | 2>(1);
 
   // Datos vivienda
-  const [zona, setZona] = useState<(typeof ZONAS)[number]["key"]>("alcorcon");
+  const [zona, setZona] = useState<ZonaKey>("alcorcon");
   const [m2, setM2] = useState<number>(80);
   const [habitaciones, setHabitaciones] = useState<number>(3);
   const [banos, setBanos] = useState<number>(1);
@@ -57,27 +66,37 @@ export default function ValoradorDetalle() {
   const zonaBase = useMemo(() => ZONAS.find((z) => z.key === zona)!, [zona]);
   const [eurM2Manual, setEurM2Manual] = useState<number>(zonaBase.eurM2);
 
-  // ✅ Precarga desde query params (viene desde HOME)
+  // ✅ Precarga desde query params (sin romper defaults si no vienen)
   useEffect(() => {
     const z = sp.get("zona");
-    if (z && ZONA_KEYS.has(z)) setZona(z as any);
+    if (isZonaKey(z)) setZona(z);
 
     const est = sp.get("estado");
-    if (est && ESTADOS.has(est as Estado)) setEstado(est as Estado);
+    if (isEstado(est)) setEstado(est);
 
+    // numéricos
     setM2(asNum(sp.get("m2"), 80));
     setHabitaciones(asNum(sp.get("habitaciones"), 3));
     setBanos(asNum(sp.get("banos"), 1));
 
-    setAscensor(asBool(sp.get("ascensor")));
-    setExterior(asBool(sp.get("exterior")));
-    setTerraza(asBool(sp.get("terraza")));
-    setGaraje(asBool(sp.get("garaje")));
+    // booleanos (solo si el param existe; si no, respetamos el default del state)
+    const a = sp.get("ascensor");
+    if (a !== null) setAscensor(asBool(a));
 
+    const ex = sp.get("exterior");
+    if (ex !== null) setExterior(asBool(ex));
+
+    const t = sp.get("terraza");
+    if (t !== null) setTerraza(asBool(t));
+
+    const g = sp.get("garaje");
+    if (g !== null) setGaraje(asBool(g));
+
+    // eurM2Manual
     const em = sp.get("eurM2Manual");
-    if (em) {
+    if (em !== null) {
       const n = Number(em);
-      if (Number.isFinite(n) && n > 0) setEurM2Manual(n);
+      if (Number.isFinite(n) && n >= 500) setEurM2Manual(n);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -125,7 +144,12 @@ export default function ValoradorDetalle() {
     const zonaLabel = ZONAS.find((z) => z.key === zona)?.label ?? zona;
     return `Valoración orientativa: ${eur(min)} - ${eur(max)} (central: ${eur(mid)}).
 Zona: ${zonaLabel}. m²: ${m2}. Hab: ${habitaciones}. Baños: ${banos}. Estado: ${estado}.
-Extras: ${[ascensor && "ascensor", exterior && "exterior", terraza && "terraza", garaje && "garaje"]
+Extras: ${[
+      ascensor && "ascensor",
+      exterior && "exterior",
+      terraza && "terraza",
+      garaje && "garaje",
+    ]
       .filter(Boolean)
       .join(", ") || "ninguno"}.`;
   }, [zona, m2, habitaciones, banos, estado, ascensor, exterior, terraza, garaje, min, mid, max]);
@@ -182,10 +206,7 @@ Extras: ${[ascensor && "ascensor", exterior && "exterior", terraza && "terraza",
               <select
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
                 value={zona}
-                onChange={(e) => {
-                  const v = e.target.value as (typeof ZONAS)[number]["key"];
-                  setZona(v);
-                }}
+                onChange={(e) => setZona(e.target.value as ZonaKey)}
               >
                 {ZONAS.map((z) => (
                   <option key={z.key} value={z.key}>
@@ -284,7 +305,8 @@ Extras: ${[ascensor && "ascensor", exterior && "exterior", terraza && "terraza",
                       : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
                   ].join(" ")}
                 >
-                  {active ? "✅ " : ""}{label as string}
+                  {active ? "✅ " : ""}
+                  {label as string}
                 </button>
               );
             })}
