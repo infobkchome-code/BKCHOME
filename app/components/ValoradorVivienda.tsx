@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+
+const WHATSAPP = "https://wa.me/34617476695";
 
 const ZONAS = [
   { key: "alcorcon", label: "Alcorcón", eurM2: 2600 },
@@ -13,25 +14,31 @@ const ZONAS = [
   { key: "otro", label: "Otra zona (manual)", eurM2: 2600 },
 ] as const;
 
+type ZonaKey = (typeof ZONAS)[number]["key"];
+type Estado = "reformar" | "normal" | "reformado";
+
 function eur(n: number) {
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
-  }).format(isNaN(n) ? 0 : n);
+  }).format(Number.isFinite(n) ? n : 0);
 }
 
-type Estado = "reformar" | "normal" | "reformado";
+function clampNum(n: number, min: number, max: number) {
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
 
 export default function ValoradorVivienda() {
-  const router = useRouter();
-
-  const [zona, setZona] = useState<(typeof ZONAS)[number]["key"]>("alcorcon");
+  const [zona, setZona] = useState<ZonaKey>("alcorcon");
   const [m2, setM2] = useState<number>(80);
+
+  // “Detalles” (opcionales)
+  const [showMore, setShowMore] = useState(false);
   const [habitaciones, setHabitaciones] = useState<number>(3);
   const [banos, setBanos] = useState<number>(1);
   const [estado, setEstado] = useState<Estado>("normal");
-
   const [ascensor, setAscensor] = useState<boolean>(true);
   const [exterior, setExterior] = useState<boolean>(true);
   const [terraza, setTerraza] = useState<boolean>(false);
@@ -43,7 +50,7 @@ export default function ValoradorVivienda() {
   const eurM2 = zona === "otro" ? eurM2Manual : zonaBase.eurM2;
 
   const { min, mid, max } = useMemo(() => {
-    const m2Safe = Math.max(20, Math.min(400, isNaN(m2) ? 0 : m2));
+    const m2Safe = clampNum(m2, 20, 400);
     const base = m2Safe * Math.max(500, eurM2);
 
     let mult = 1;
@@ -67,186 +74,288 @@ export default function ValoradorVivienda() {
     };
   }, [m2, eurM2, habitaciones, banos, estado, ascensor, exterior, terraza, garaje]);
 
-  function goDetalle() {
-    const params = new URLSearchParams({
-      zona,
-      m2: String(m2 ?? ""),
-      habitaciones: String(habitaciones ?? ""),
-      banos: String(banos ?? ""),
-      estado,
-      ascensor: ascensor ? "1" : "0",
-      exterior: exterior ? "1" : "0",
-      terraza: terraza ? "1" : "0",
-      garaje: garaje ? "1" : "0",
-      eurM2Manual: String(eurM2Manual ?? ""),
-    });
+  const zonaLabel = useMemo(
+    () => ZONAS.find((z) => z.key === zona)?.label ?? zona,
+    [zona]
+  );
 
-    router.push(`/valora-tu-vivienda?${params.toString()}`);
-  }
+  const precisionLabel = useMemo(() => {
+    if (!showMore) return "Rápida";
+    // si abre detalles, subimos “percepción” de precisión
+    const extras = [ascensor, exterior, terraza, garaje].filter(Boolean).length;
+    const score = 3 + extras; // 3 base + extras
+    if (score >= 6) return "Alta";
+    if (score >= 4) return "Media";
+    return "Rápida+";
+  }, [showMore, ascensor, exterior, terraza, garaje]);
+
+  const detailsHref = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("zona", zona);
+    params.set("m2", String(clampNum(m2, 20, 400)));
+
+    // precargamos también los detalles aunque no estén abiertos: no molesta
+    params.set("habitaciones", String(clampNum(habitaciones, 0, 10)));
+    params.set("banos", String(clampNum(banos, 0, 6)));
+    params.set("estado", estado);
+
+    params.set("ascensor", ascensor ? "1" : "0");
+    params.set("exterior", exterior ? "1" : "0");
+    params.set("terraza", terraza ? "1" : "0");
+    params.set("garaje", garaje ? "1" : "0");
+
+    if (zona === "otro") params.set("eurM2Manual", String(Math.max(500, eurM2Manual)));
+
+    return `/valora-tu-vivienda?${params.toString()}`;
+  }, [zona, m2, habitaciones, banos, estado, ascensor, exterior, terraza, garaje, eurM2Manual]);
+
+  const waHref = useMemo(() => {
+    const text = `Hola BKC Home, he calculado una estimación orientativa para mi vivienda:
+- Zona: ${zonaLabel}
+- m²: ${clampNum(m2, 20, 400)}
+- Rango: ${eur(min)} – ${eur(max)} (central ${eur(mid)})
+
+¿Me ayudáis con una valoración más precisa?`;
+    return `${WHATSAPP}?text=${encodeURIComponent(text)}`;
+  }, [zonaLabel, m2, min, max, mid]);
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Calcula cuánto puede valer tu vivienda
-        </h2>
-        <p className="text-xs text-slate-600">
-          Estimación orientativa en función de zona, metros y extras. Sin datos personales.
-        </p>
+    <div className="relative">
+      {/* Glow decorativo */}
+      <div className="pointer-events-none absolute -inset-6 opacity-70 blur-2xl">
+        <div className="h-full w-full rounded-[40px] bg-gradient-to-br from-emerald-200 via-sky-100 to-emerald-100" />
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="text-xs font-medium text-slate-700">
-          Zona
-          <select
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
-            value={zona}
-            onChange={(e) => {
-              const v = e.target.value as (typeof ZONAS)[number]["key"];
-              setZona(v);
-              const found = ZONAS.find((z) => z.key === v);
-              if (found) setEurM2Manual(found.eurM2);
-            }}
-          >
-            {ZONAS.map((z) => (
-              <option key={z.key} value={z.key}>
-                {z.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Marco degradado para “hero” */}
+      <div className="relative rounded-[28px] p-[1px] bg-gradient-to-br from-emerald-300 via-sky-200 to-emerald-200 shadow-[0_20px_60px_-35px_rgba(15,118,110,0.7)]">
+        <div className="relative rounded-[27px] bg-white p-5 md:p-6">
+          {/* Header con gancho */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-900">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-30"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  </span>
+                  GRATIS · 30s
+                </span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700">
+                  Sin datos personales
+                </span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700">
+                  Precisión: {precisionLabel}
+                </span>
+              </div>
 
-        <label className="text-xs font-medium text-slate-700">
-          Metros construidos (m²)
-          <input
-            type="number"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
-            value={m2}
-            onChange={(e) => setM2(Number(e.target.value))}
-            min={20}
-            max={400}
-          />
-        </label>
+              <h2 className="text-lg md:text-xl font-semibold text-slate-900">
+                Calcula cuánto puede valer tu vivienda
+              </h2>
+              <p className="text-xs text-slate-600">
+                Estimación orientativa con tu zona y metros. Si quieres, la afinamos en 2 clics.
+              </p>
+            </div>
 
-        <label className="text-xs font-medium text-slate-700">
-          Habitaciones
-          <input
-            type="number"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
-            value={habitaciones}
-            onChange={(e) => setHabitaciones(Number(e.target.value))}
-            min={0}
-            max={10}
-          />
-        </label>
-
-        <label className="text-xs font-medium text-slate-700">
-          Baños
-          <input
-            type="number"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
-            value={banos}
-            onChange={(e) => setBanos(Number(e.target.value))}
-            min={0}
-            max={6}
-          />
-        </label>
-
-        <label className="text-xs font-medium text-slate-700">
-          Estado
-          <select
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
-            value={estado}
-            onChange={(e) => setEstado(e.target.value as Estado)}
-          >
-            <option value="reformar">A reformar</option>
-            <option value="normal">Normal</option>
-            <option value="reformado">Reformado / actualizado</option>
-          </select>
-        </label>
-
-        {zona === "otro" ? (
-          <label className="text-xs font-medium text-slate-700">
-            Precio zona (€/m²) aproximado
-            <input
-              type="number"
-              inputMode="numeric"
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
-              value={eurM2Manual}
-              onChange={(e) => setEurM2Manual(Number(e.target.value))}
-              min={500}
-            />
-          </label>
-        ) : (
-          <div className="text-xs text-slate-600 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 flex items-center">
-            Base orientativa:{" "}
-            <span className="ml-1 font-semibold text-slate-900">{eurM2} €/m²</span>
+            <div className="hidden md:flex flex-col items-end text-right">
+              <div className="text-[11px] text-slate-500">Zona actual</div>
+              <div className="text-sm font-semibold text-slate-900">{zonaLabel}</div>
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-sm">
-        {[
-          ["Ascensor", ascensor, setAscensor],
-          ["Exterior", exterior, setExterior],
-          ["Terraza", terraza, setTerraza],
-          ["Garaje", garaje, setGaraje],
-        ].map(([label, value, setter]) => {
-          const active = value as boolean;
-          const set = setter as (v: boolean) => void;
-          return (
+          {/* Inputs “rápidos” */}
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="text-xs font-medium text-slate-700">
+              Zona
+              <select
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
+                value={zona}
+                onChange={(e) => {
+                  const v = e.target.value as ZonaKey;
+                  setZona(v);
+                  const found = ZONAS.find((z) => z.key === v);
+                  if (found) setEurM2Manual(found.eurM2);
+                }}
+              >
+                {ZONAS.map((z) => (
+                  <option key={z.key} value={z.key}>
+                    {z.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-xs font-medium text-slate-700">
+              Metros construidos (m²)
+              <input
+                type="number"
+                inputMode="numeric"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
+                value={m2}
+                onChange={(e) => setM2(Number(e.target.value))}
+                min={20}
+                max={400}
+              />
+            </label>
+
+            {zona === "otro" ? (
+              <label className="text-xs font-medium text-slate-700 md:col-span-2">
+                Precio zona (€/m²) aproximado
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
+                  value={eurM2Manual}
+                  onChange={(e) => setEurM2Manual(Number(e.target.value))}
+                  min={500}
+                />
+              </label>
+            ) : (
+              <div className="md:col-span-2 text-xs text-slate-600 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 flex items-center justify-between">
+                <span>Base orientativa de la zona</span>
+                <span className="font-semibold text-slate-900">{eurM2} €/m²</span>
+              </div>
+            )}
+          </div>
+
+          {/* Toggle “más precisión” */}
+          <div className="mt-4 flex items-center justify-between gap-3">
             <button
-              key={label as string}
               type="button"
-              onClick={() => set(!active)}
-              className={[
-                "px-3 py-1.5 rounded-2xl border text-xs transition",
-                active
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-              ].join(" ")}
+              onClick={() => setShowMore((v) => !v)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
             >
-              {active ? "✅ " : ""}
-              {label as string}
+              {showMore ? "− Ocultar detalles" : "+ Añadir detalles (más precisión)"}
             </button>
-          );
-        })}
-      </div>
 
-      <div className="mt-5 rounded-3xl border border-emerald-100 bg-emerald-50/70 p-4 space-y-2">
-        <div className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
-          Estimación orientativa
-        </div>
-        <div className="text-2xl font-semibold text-slate-900">
-          {eur(min)} – {eur(max)}
-        </div>
-        <div className="text-sm text-slate-700">
-          Valor central aprox.: <span className="font-semibold">{eur(mid)}</span>
-        </div>
+            <div className="text-[11px] text-slate-500">
+              Tip: cuanto más completo, mejor el rango.
+            </div>
+          </div>
 
-        <p className="mt-2 text-[11px] text-slate-500">
-          *Solo orientativo. Para afinar usamos comparables reales (planta, orientación, calidades, etc.).
-        </p>
+          {showMore && (
+            <>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="text-xs font-medium text-slate-700">
+                  Estado
+                  <select
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
+                    value={estado}
+                    onChange={(e) => setEstado(e.target.value as Estado)}
+                  >
+                    <option value="reformar">A reformar</option>
+                    <option value="normal">Normal</option>
+                    <option value="reformado">Reformado / actualizado</option>
+                  </select>
+                </label>
 
-        <div className="mt-3 flex flex-wrap gap-3">
-          {/* ✅ ESTA FILA: ahora navega PRE-CARGADO */}
-          <button
-            type="button"
-            onClick={goDetalle}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 transition"
-          >
-            Quiero una valoración más precisa
-          </button>
+                <label className="text-xs font-medium text-slate-700">
+                  Habitaciones
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
+                    value={habitaciones}
+                    onChange={(e) => setHabitaciones(Number(e.target.value))}
+                    min={0}
+                    max={10}
+                  />
+                </label>
 
-          <a
-            href="https://wa.me/34617476695"
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-white"
-          >
-            Enviarte los datos por WhatsApp
-          </a>
+                <label className="text-xs font-medium text-slate-700">
+                  Baños
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200"
+                    value={banos}
+                    onChange={(e) => setBanos(Number(e.target.value))}
+                    min={0}
+                    max={6}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                {[
+                  ["Ascensor", ascensor, setAscensor],
+                  ["Exterior", exterior, setExterior],
+                  ["Terraza", terraza, setTerraza],
+                  ["Garaje", garaje, setGaraje],
+                ].map(([label, value, setter]) => {
+                  const active = value as boolean;
+                  const set = setter as (v: boolean) => void;
+                  return (
+                    <button
+                      key={label as string}
+                      type="button"
+                      onClick={() => set(!active)}
+                      className={[
+                        "px-3 py-1.5 rounded-2xl border text-xs transition",
+                        active
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      {active ? "✅ " : ""}{label as string}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Resultado “con gancho” */}
+          <div className="mt-5 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 md:p-5">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
+                  Estimación orientativa
+                </div>
+                <div className="mt-1 text-2xl md:text-3xl font-semibold text-slate-900">
+                  {eur(min)} <span className="text-slate-400">–</span> {eur(max)}
+                </div>
+                <div className="mt-1 text-sm text-slate-700">
+                  Valor central aprox.: <span className="font-semibold">{eur(mid)}</span>
+                </div>
+              </div>
+
+              <div className="hidden md:block text-right">
+                <div className="text-[11px] text-slate-500">Rango</div>
+                <div className="text-sm font-semibold text-slate-900">
+                  ± {eur(Math.round((max - min) / 2))}
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-slate-500">
+              *Solo orientativo. Para afinar usamos comparables reales (finca, altura, orientación,
+              calidades y demanda).
+            </p>
+
+            {/* CTAs potentes */}
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              <a
+                href={detailsHref}
+                className="inline-flex w-full items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition transform hover:-translate-y-[1px]"
+              >
+                Quiero una valoración más precisa
+                <span aria-hidden>→</span>
+              </a>
+
+              <a
+                href={waHref}
+                className="inline-flex w-full items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 hover:bg-slate-50 transition"
+              >
+                Enviarte este rango por WhatsApp
+              </a>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+              <span>✅ Respuesta rápida</span>
+              <span>✅ Sin compromiso</span>
+              <span className="hidden md:inline">✅ Especialistas zona sur</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
