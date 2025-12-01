@@ -3,13 +3,6 @@
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* ...tu contenido de la home, incluido el formulario con onSubmit... */}
-    </main>
-  );
-}
-export default function HomePage() {
-  return (
-    <main className="min-h-screen bg-slate-50">
       {/* HERO */}
       <section className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 grid gap-10 md:grid-cols-[1.2fr,1fr] md:items-center">
@@ -112,7 +105,9 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-200">¿Qué necesitas?</label>
+                <label className="text-xs font-medium text-slate-200">
+                  ¿Qué necesitas?
+                </label>
                 <select
                   className="w-full rounded-xl border border-slate-700 bg-slate-900/70 text-sm px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
                   defaultValue="vender"
@@ -131,10 +126,10 @@ export default function HomePage() {
                 Me llamáis para verlo
               </button>
 
-            <p className="text-[10px] text-slate-400 mt-2">
-              Al enviar aceptas que te contactemos para informarte sobre la venta o compra de tu
-              vivienda. Podrás ejercer tus derechos de protección de datos cuando quieras.
-            </p>
+              <p className="text-[10px] text-slate-400 mt-2">
+                Al enviar aceptas que te contactemos para informarte sobre la venta o compra de tu
+                vivienda. Podrás ejercer tus derechos de protección de datos cuando quieras.
+              </p>
             </form>
           </div>
         </div>
