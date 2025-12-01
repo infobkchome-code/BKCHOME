@@ -1,58 +1,59 @@
 import "./globals.css";
-import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-export const metadata: Metadata = {
-  title: "BKC Home · Inmobiliaria en Alcorcón y zona sur de Madrid",
-  description:
-    "BKC Home es tu inmobiliaria de confianza en Alcorcón y zona sur de Madrid. Te ayudamos a vender o comprar vivienda y a conseguir la mejor hipoteca para tu caso, con un trato cercano y transparente.",
-  keywords: [
-    "inmobiliaria Alcorcón",
-    "vender piso Alcorcón",
-    "comprar vivienda Alcorcón",
-    "inmobiliaria zona sur Madrid",
-    "BKC Home",
-    "hipoteca Alcorcón",
-  ],
-  openGraph: {
-    title: "BKC Home · Inmobiliaria en Alcorcón y zona sur",
-    description:
-      "Vende o compra tu vivienda en Alcorcón y zona sur con una inmobiliaria que te habla claro. Valoración sin compromiso y acompañamiento completo hasta la notaría.",
-    type: "website",
-    locale: "es_ES",
-    siteName: "BKC Home",
-  },
-};
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bkchome.es";
+const PHONE = "+34617476695";
+const WHATSAPP = "https://wa.me/34617476695";
 
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "BKC Home - Inmobiliaria en Alcorcón y zona sur",
+    template: "%s | BKC Home",
+  },
+  description:
+    "BKC Home, tu inmobiliaria en Alcorcón y zona sur de Madrid. Te ayudamos a vender, comprar y financiar tu vivienda con un trato cercano y transparente.",
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    title: "BKC Home - Inmobiliaria en Alcorcón y zona sur",
+    description:
+      "Vende o compra con tranquilidad. Valoración, marketing, negociación y notaría. También te ayudamos con la hipoteca si lo necesitas.",
+    siteName: "BKC Home",
+    locale: "es_ES",
+  },
+  robots: { index: true, follow: true },
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <body className="min-h-screen bg-slate-50 text-slate-900">
         {/* CABECERA */}
-        <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-6">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
             <a href="/" className="text-lg font-semibold tracking-tight">
               <span className="text-slate-900">BKC</span>{" "}
               <span className="text-slate-500">Home</span>
             </a>
 
-            <nav className="hidden md:flex gap-5 text-sm text-slate-600">
+            {/* NAV DESKTOP */}
+            <nav className="hidden md:flex items-center gap-5 text-sm text-slate-600">
               <a href="/vender" className="hover:text-slate-900">
                 Vender
               </a>
               <a href="/comprar" className="hover:text-slate-900">
                 Comprar
               </a>
-           <a
-  href="https://hipotecasbkc.es"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="hover:text-slate-900 font-semibold"
->
-  Hipotecas
-</a>
+              <a
+                href="https://hipotecasbkc.es"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-900 font-semibold"
+              >
+                Hipotecas
+              </a>
               <a href="/quienes-somos" className="hover:text-slate-900">
                 Quiénes somos
               </a>
@@ -61,29 +62,118 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </a>
             </nav>
 
-            <a
-              href="/valora-tu-vivienda"
-              className="hidden md:inline-flex px-4 py-2 rounded-full border border-slate-800 text-sm font-medium text-slate-800 hover:bg-slate-900 hover:text-white transition"
-            >
-              Valora tu vivienda
-            </a>
+            {/* CTA DESKTOP */}
+            <div className="hidden md:flex items-center gap-3">
+              <a
+                href={`tel:${PHONE}`}
+                className="px-3 py-2 rounded-full border border-slate-200 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                📞 Llamar
+              </a>
+              <a
+                href={WHATSAPP}
+                className="px-3 py-2 rounded-full border border-slate-200 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                💬 WhatsApp
+              </a>
+              <a
+                href="/valora-tu-vivienda"
+                className="px-4 py-2 rounded-full bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 transition"
+              >
+                Valora tu vivienda
+              </a>
+            </div>
+
+            {/* NAV MÓVIL (sin JS) */}
+            <details className="md:hidden relative">
+              <summary className="list-none cursor-pointer px-3 py-2 rounded-xl border border-slate-200 text-sm">
+                ☰ Menú
+              </summary>
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white shadow-lg p-2 text-sm">
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/vender">
+                  Vender
+                </a>
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/comprar">
+                  Comprar
+                </a>
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50 font-semibold"
+                  href="https://hipotecasbkc.es"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Hipotecas
+                </a>
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/valora-tu-vivienda">
+                  Valora tu vivienda
+                </a>
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/quienes-somos">
+                  Quiénes somos
+                </a>
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/contacto">
+                  Contacto
+                </a>
+                <div className="h-px bg-slate-200 my-2" />
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href={`tel:${PHONE}`}>
+                  📞 Llamar
+                </a>
+                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href={WHATSAPP}>
+                  💬 WhatsApp
+                </a>
+              </div>
+            </details>
           </div>
         </header>
 
         {/* CONTENIDO */}
-        <main>{children}</main>
+        <div className="min-h-[60vh]">{children}</div>
+
+        {/* CTA flotante global */}
+        <a
+          href={WHATSAPP}
+          className="fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold flex items-center gap-2 shadow-lg hover:bg-slate-50"
+        >
+          💬 WhatsApp
+        </a>
 
         {/* FOOTER */}
         <footer className="mt-16 border-t border-slate-200 bg-white">
-          <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
-            <span>© {new Date().getFullYear()} BKC Home. Todos los derechos reservados.</span>
-            <div className="flex gap-4">
-              <a href="/aviso-legal" className="hover:text-slate-800">
-                Aviso legal
-              </a>
-              <a href="/privacidad" className="hover:text-slate-800">
-                Política de privacidad
-              </a>
+          <div className="max-w-6xl mx-auto px-4 py-8 grid gap-6 md:grid-cols-3">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">BKC Home</div>
+              <p className="text-xs text-slate-600">
+                Inmobiliaria en Alcorcón y zona sur. Venta, compra y apoyo en financiación.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-600">
+              <div className="font-semibold text-slate-900">Enlaces</div>
+              <div className="flex flex-col gap-2">
+                <a className="hover:text-slate-900" href="/vender">Vender</a>
+                <a className="hover:text-slate-900" href="/comprar">Comprar</a>
+                <a className="hover:text-slate-900" href="/valora-tu-vivienda">Valorar vivienda</a>
+                <a className="hover:text-slate-900" href="/contacto">Contacto</a>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-600">
+              <div className="font-semibold text-slate-900">Legal</div>
+              <div className="flex flex-col gap-2">
+                <a className="hover:text-slate-900" href="/aviso-legal">Aviso legal</a>
+                <a className="hover:text-slate-900" href="/privacidad">Política de privacidad</a>
+                <a className="hover:text-slate-900" href="/cookies">Política de cookies</a>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200">
+            <div className="max-w-6xl mx-auto px-4 py-4 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-3">
+              <span>© {new Date().getFullYear()} BKC Home. Todos los derechos reservados.</span>
+              <span>
+                <a className="hover:text-slate-900" href="/privacidad">Privacidad</a>
+                {" · "}
+                <a className="hover:text-slate-900" href="/aviso-legal">Aviso legal</a>
+              </span>
             </div>
           </div>
         </footer>
