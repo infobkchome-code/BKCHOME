@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
@@ -27,8 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     return Response.json({ ok: true });
-  } catch (e) {
-    console.error(e);
+  } catch {
     return Response.json({ ok: false, error: "Invalid payload" }, { status: 400 });
   }
 }
