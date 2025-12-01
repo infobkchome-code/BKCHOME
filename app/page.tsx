@@ -3,7 +3,7 @@ import ValoradorVivienda from "./components/ValoradorVivienda";
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* HERO con valorador */}
+      {/* HERO (gancho + scroll al valorador) */}
       <section className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 grid gap-10 md:grid-cols-[1.2fr,1fr] md:items-start">
           {/* TEXTO IZQUIERDA */}
@@ -33,10 +33,10 @@ export default function HomePage() {
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <a
-                href="/valora-tu-vivienda"
+                href="#valorador"
                 className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 transition"
               >
-                🧮 Valorar mi vivienda
+                🧮 Calcular cuánto vale mi casa (30s)
               </a>
               <a
                 href="https://wa.me/34617476695"
@@ -51,8 +51,65 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* DERECHA: MISMO VALORADOR QUE BUSCA EL CLIENTE */}
-          <ValoradorVivienda />
+          {/* TARJETA DERECHA: gancho visual + scroll */}
+          <div className="rounded-3xl border border-emerald-100 bg-emerald-50/60 p-6 shadow-sm relative overflow-hidden">
+            <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-emerald-200/30 blur-2xl" />
+            <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-emerald-200/20 blur-2xl" />
+
+            <div className="relative space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                Valorador online
+              </p>
+
+              <h2 className="text-lg md:text-xl font-semibold text-slate-900 leading-snug">
+                Descubre en 30 segundos cuánto podría valer tu vivienda
+              </h2>
+
+              <p className="text-sm text-slate-700">
+                Te damos un rango orientativo por zona, metros y extras. Sin datos personales.
+              </p>
+
+              <div className="grid gap-2 text-sm text-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white border border-emerald-100">
+                    ✅
+                  </span>
+                  <span>Rápido, claro y sin llamadas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white border border-emerald-100">
+                    ✅
+                  </span>
+                  <span>Especialistas en Alcorcón y zona sur</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white border border-emerald-100">
+                    ✅
+                  </span>
+                  <span>Luego lo afinamos con comparables reales</span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-wrap gap-3">
+                <a
+                  href="#valorador"
+                  className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition shadow-sm"
+                >
+                  Empezar valoración ahora →
+                </a>
+                <a
+                  href="/valora-tu-vivienda"
+                  className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-white transition"
+                >
+                  Valoración avanzada
+                </a>
+              </div>
+
+              <p className="text-[11px] text-slate-600">
+                *Orientativo. Para precio final revisamos altura, orientación, calidades, demanda y comparables.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -65,6 +122,68 @@ export default function HomePage() {
           <p className="text-xs text-slate-600">
             🎯 Especialistas en propietarios que venden para comprar otra vivienda
           </p>
+        </div>
+      </section>
+
+      {/* TRAMO COMPLETO DEL VALORADOR (PROTAGONISTA) */}
+      <section
+        id="valorador"
+        className="border-b border-slate-200 bg-gradient-to-b from-white to-emerald-50/30 scroll-mt-24"
+      >
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+          <div className="grid gap-10 md:grid-cols-[1.05fr,1fr] md:items-start">
+            {/* Copy */}
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                Herramienta gratuita
+              </p>
+
+              <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 leading-tight">
+                Valoración orientativa online
+                <span className="block text-emerald-700 mt-1">
+                  para propietarios que quieren vender bien
+                </span>
+              </h2>
+
+              <p className="text-sm md:text-base text-slate-600">
+                Empieza con una estimación rápida. Si encaja, te llamamos y lo afinamos con
+                comparables reales de tu zona (sin humo y sin inflar).
+              </p>
+
+              <div className="grid gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Lo que ganas con esto:
+                  </p>
+                  <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                    <li>✅ Saber si tu precio esperado tiene sentido hoy.</li>
+                    <li>✅ Evitar “publico y ya” → estrategia real, visitas filtradas.</li>
+                    <li>✅ Si quieres, te decimos cómo vender para comprar sin quedarte en el aire.</li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href="/valora-tu-vivienda"
+                    className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition"
+                  >
+                    Quiero una valoración más precisa
+                  </a>
+                  <a
+                    href="https://wa.me/34617476695"
+                    className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-white transition"
+                  >
+                    Enviar datos por WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Componente */}
+            <div className="md:sticky md:top-24">
+              <ValoradorVivienda />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -166,10 +285,10 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <a
-              href="/valora-tu-vivienda"
+              href="#valorador"
               className="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 transition"
             >
-              🧮 Quiero una valoración orientativa
+              🧮 Calcular el valor ahora
             </a>
             <a
               href="tel:+34617476695"
@@ -183,7 +302,7 @@ export default function HomePage() {
 
       {/* BOTÓN FLOTANTE VALORACIÓN */}
       <a
-        href="/valora-tu-vivienda"
+        href="#valorador"
         className="fixed bottom-4 right-4 z-40 px-4 py-2.5 rounded-full bg-emerald-700 text-white text-xs font-semibold flex items-center gap-2 shadow-lg hover:bg-emerald-800 transition"
       >
         🧮 Saber cuánto vale mi casa
