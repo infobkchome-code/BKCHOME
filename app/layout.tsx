@@ -1,12 +1,30 @@
 import "./globals.css";
+import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "BKC Home - Inmobiliaria en Alcorcón y zona sur",
+  title: "BKC Home · Inmobiliaria en Alcorcón y zona sur de Madrid",
   description:
-    "BKC Home, tu inmobiliaria en Alcorcón y zona sur de Madrid. Te ayudamos a vender, comprar y financiar tu vivienda con un trato cercano y transparente.",
+    "BKC Home es tu inmobiliaria de confianza en Alcorcón y zona sur de Madrid. Te ayudamos a vender o comprar vivienda y a conseguir la mejor hipoteca para tu caso, con un trato cercano y transparente.",
+  keywords: [
+    "inmobiliaria Alcorcón",
+    "vender piso Alcorcón",
+    "comprar vivienda Alcorcón",
+    "inmobiliaria zona sur Madrid",
+    "BKC Home",
+    "hipoteca Alcorcón",
+  ],
+  openGraph: {
+    title: "BKC Home · Inmobiliaria en Alcorcón y zona sur",
+    description:
+      "Vende o compra tu vivienda en Alcorcón y zona sur con una inmobiliaria que te habla claro. Valoración sin compromiso y acompañamiento completo hasta la notaría.",
+    type: "website",
+    locale: "es_ES",
+    siteName: "BKC Home",
+  },
 };
+
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
