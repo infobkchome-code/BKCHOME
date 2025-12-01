@@ -1,3 +1,12 @@
+"use client";
+
+export default function HomePage() {
+  return (
+    <main className="min-h-screen bg-slate-50">
+      {/* ...tu contenido de la home, incluido el formulario con onSubmit... */}
+    </main>
+  );
+}
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50">
