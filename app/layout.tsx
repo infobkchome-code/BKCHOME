@@ -45,9 +45,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <a href="/comprar" className="hover:text-slate-900">
                 Comprar
               </a>
-              <a href="/hipotecas" className="hover:text-slate-900">
-                Hipotecas
-              </a>
+           <a
+  href="https://hipotecasbkc.es"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="hover:text-slate-900 font-semibold"
+>
+  Hipotecas
+</a>
               <a href="/quienes-somos" className="hover:text-slate-900">
                 Quiénes somos
               </a>
