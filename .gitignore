@@ -1,0 +1,14 @@
+cat > .gitignore <<'EOF'
+node_modules
+.next
+.next/
+out
+dist
+.vercel
+.env
+.env.local
+.env.*.local
+next-env.d.ts
+tsconfig.tsbuildinfo
+*.log
+EOF
