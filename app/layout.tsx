@@ -1,10 +1,15 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Script from "next/script";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bkchome.es";
 const PHONE = "+34617476695";
 const WHATSAPP = "https://wa.me/34617476695";
+
+// Pixel (fallback para test si env var no entra)
+const META_PIXEL_ID =
+  process.env.NEXT_PUBLIC_META_PIXEL_ID || "2053101328796781";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -30,6 +35,39 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <body className="min-h-screen bg-slate-50 text-slate-900">
+        {/* META PIXEL (en body para evitar líos de head en App Router) */}
+        {META_PIXEL_ID ? (
+          <>
+            <Script
+              id="meta-pixel"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  !function(f,b,e,v,n,t,s)
+                  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                  n.queue=[];t=b.createElement(e);t.async=!0;
+                  t.src=v;s=b.getElementsByTagName(e)[0];
+                  s.parentNode.insertBefore(t,s)}(window, document,'script',
+                  'https://connect.facebook.net/en_US/fbevents.js');
+                  fbq('init', '${META_PIXEL_ID}');
+                  fbq('track', 'PageView');
+                `,
+              }}
+            />
+            <noscript>
+              <img
+                height="1"
+                width="1"
+                style={{ display: "none" }}
+                src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+                alt=""
+              />
+            </noscript>
+          </>
+        ) : null}
+
         {/* CABECERA */}
         <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
@@ -90,10 +128,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 ☰ Menú
               </summary>
               <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white shadow-lg p-2 text-sm">
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/vender">
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href="/vender"
+                >
                   Vender
                 </a>
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/comprar">
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href="/comprar"
+                >
                   Comprar
                 </a>
                 <a
@@ -104,20 +148,35 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 >
                   Hipotecas
                 </a>
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/valora-tu-vivienda">
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href="/valora-tu-vivienda"
+                >
                   Valora tu vivienda
                 </a>
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/quienes-somos">
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href="/quienes-somos"
+                >
                   Quiénes somos
                 </a>
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href="/contacto">
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href="/contacto"
+                >
                   Contacto
                 </a>
                 <div className="h-px bg-slate-200 my-2" />
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href={`tel:${PHONE}`}>
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href={`tel:${PHONE}`}
+                >
                   📞 Llamar
                 </a>
-                <a className="block px-3 py-2 rounded-xl hover:bg-slate-50" href={WHATSAPP}>
+                <a
+                  className="block px-3 py-2 rounded-xl hover:bg-slate-50"
+                  href={WHATSAPP}
+                >
                   💬 WhatsApp
                 </a>
               </div>
@@ -135,49 +194,3 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           💬 WhatsApp
         </a>
-
-        {/* FOOTER */}
-        <footer className="mt-16 border-t border-slate-200 bg-white">
-          <div className="max-w-6xl mx-auto px-4 py-8 grid gap-6 md:grid-cols-3">
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">BKC Home</div>
-              <p className="text-xs text-slate-600">
-                Inmobiliaria en Alcorcón y zona sur. Venta, compra y apoyo en financiación.
-              </p>
-            </div>
-
-            <div className="space-y-2 text-xs text-slate-600">
-              <div className="font-semibold text-slate-900">Enlaces</div>
-              <div className="flex flex-col gap-2">
-                <a className="hover:text-slate-900" href="/vender">Vender</a>
-                <a className="hover:text-slate-900" href="/comprar">Comprar</a>
-                <a className="hover:text-slate-900" href="/valora-tu-vivienda">Valorar vivienda</a>
-                <a className="hover:text-slate-900" href="/contacto">Contacto</a>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs text-slate-600">
-              <div className="font-semibold text-slate-900">Legal</div>
-              <div className="flex flex-col gap-2">
-                <a className="hover:text-slate-900" href="/aviso-legal">Aviso legal</a>
-                <a className="hover:text-slate-900" href="/privacidad">Política de privacidad</a>
-                <a className="hover:text-slate-900" href="/cookies">Política de cookies</a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-200">
-            <div className="max-w-6xl mx-auto px-4 py-4 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-3">
-              <span>© {new Date().getFullYear()} BKC Home. Todos los derechos reservados.</span>
-              <span>
-                <a className="hover:text-slate-900" href="/privacidad">Privacidad</a>
-                {" · "}
-                <a className="hover:text-slate-900" href="/aviso-legal">Aviso legal</a>
-              </span>
-            </div>
-          </div>
-        </footer>
-      </body>
-    </html>
-  );
-}
