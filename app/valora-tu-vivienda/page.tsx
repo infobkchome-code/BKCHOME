@@ -1,3 +1,8 @@
+import dynamic from "next/dynamic";
+
+const MapPreview = dynamic(() => import("@/app/components/MapPreview"), {
+  ssr: false,
+});
 "use client";
 
 import { useEffect, useMemo, useState, FormEvent } from "react";
