@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useMemo, useState, FormEvent } from "react";
 
 type PropertyFormStep1 = {
   address: string;
@@ -25,6 +25,29 @@ type ValuationResult = {
   minPrice: number;
   maxPrice: number;
 };
+
+function fbqTrack(event: string, params?: Record<string, any>) {
+  if (typeof window === "undefined") return;
+  const fbq = (window as any).fbq;
+  if (typeof fbq === "function") fbq("track", event, params);
+}
+
+function formatEUR(value: number) {
+  return value.toLocaleString("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
+}
+
+function pillClass(active: boolean) {
+  return [
+    "px-3 py-1 rounded-full text-xs font-medium border transition",
+    active
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : "border-slate-200 bg-white text-slate-600",
+  ].join(" ");
+}
 
 export default function ValoraTuViviendaPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -51,10 +74,20 @@ export default function ValoraTuViviendaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function handleStep1Change(
-    field: keyof PropertyFormStep1,
-    value: string
-  ) {
+  useEffect(() => {
+    fbqTrack("ViewContent", { source: "valora-tu-vivienda" });
+  }, []);
+
+  const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
+
+  const waLink = useMemo(() => {
+    const msg = encodeURIComponent(
+      `Hola Nahuel, acabo de hacer el valorador en BKC Home. Mi vivienda está en ${step1.city}, tiene ${step1.size} m². ¿Me puedes dar una valoración más precisa?`
+    );
+    return `https://wa.me/34617476695?text=${msg}`;
+  }, [step1.city, step1.size]);
+
+  function handleStep1Change(field: keyof PropertyFormStep1, value: string) {
     setStep1((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -89,7 +122,7 @@ export default function ValoraTuViviendaPage() {
     const m2 = Number(step1.size);
     if (isNaN(m2) || m2 <= 0) return null;
 
-    let pricePerM2 = 1800; // valor base por si acaso
+    let pricePerM2 = 1800;
 
     switch (step1.condition) {
       case "reformar":
@@ -106,24 +139,18 @@ export default function ValoraTuViviendaPage() {
         break;
     }
 
-    // Ajustes por extras
     let factor = 1;
     if (step1.hasGarage === "si") factor += 0.05;
     if (step1.hasTerrace === "si") factor += 0.05;
 
-    const adjustedPricePerM2 = pricePerM2 * factor;
-    const basePrice = m2 * adjustedPricePerM2;
-
-    const minPrice = basePrice * 0.93; // -7%
-    const maxPrice = basePrice * 1.05; // +5%
-
-    return { minPrice, maxPrice };
+    const basePrice = m2 * pricePerM2 * factor;
+    return { minPrice: basePrice * 0.93, maxPrice: basePrice * 1.05 };
   }
 
   async function handleStep1Submit(e: FormEvent) {
     e.preventDefault();
     if (!validateStep1()) {
-      setErrorMsg("Revisa los datos de la vivienda. Falta algún campo o hay un dato incorrecto.");
+      setErrorMsg("Falta algún dato o hay un campo incorrecto. Revísalo y seguimos.");
       return;
     }
     setErrorMsg(null);
@@ -133,7 +160,7 @@ export default function ValoraTuViviendaPage() {
   async function handleStep2Submit(e: FormEvent) {
     e.preventDefault();
     if (!validateStep2()) {
-      setErrorMsg("Revisa tus datos de contacto y acepta la política de privacidad.");
+      setErrorMsg("Revisa tus datos y acepta la política de privacidad.");
       return;
     }
 
@@ -141,9 +168,6 @@ export default function ValoraTuViviendaPage() {
     setSubmitting(true);
 
     try {
-      // Aquí en el futuro llamas a tu API interna para guardar el lead en Supabase
-      // await fetch("/api/leads", { method: "POST", body: JSON.stringify({ step1, step2 }) });
-
       const valuation = calculateValuation();
       if (!valuation) {
         setErrorMsg("No hemos podido calcular la valoración. Revisa los m² introducidos.");
@@ -151,121 +175,108 @@ export default function ValoraTuViviendaPage() {
         return;
       }
 
+      // ✅ Conversión
+      fbqTrack("Lead", { source: "valora-tu-vivienda" });
+
       setResult(valuation);
       setStep(3);
     } catch (err) {
       console.error(err);
-      setErrorMsg("Ha ocurrido un error al guardar tus datos. Inténtalo de nuevo en unos minutos.");
+      setErrorMsg("Ha ocurrido un error. Inténtalo de nuevo en unos minutos.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  function formatPrice(value: number): string {
-    return value.toLocaleString("es-ES", {
-      style: "currency",
-      currency: "EUR",
-      maximumFractionDigits: 0,
-    });
-  }
+  const input =
+    "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-300";
+
+  const label = "block text-xs font-medium text-slate-700 mb-1.5";
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
-      <section className="max-w-4xl mx-auto px-4 py-12">
-        <header className="mb-10 text-center">
-          <h1 className="text-3xl md:text-4xl font-semibold mb-4">
-            Valora tu vivienda gratis
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900">
+      <section className="max-w-3xl mx-auto px-4 py-10 md:py-14">
+        {/* Hero */}
+        <header className="text-center mb-8 md:mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+            ✅ Gratis · 1 minuto · Zona Sur Madrid
+          </div>
+
+          <h1 className="mt-4 text-3xl md:text-4xl font-semibold tracking-tight">
+            ¿Cuánto vale tu vivienda hoy?
           </h1>
-          <p className="text-slate-300 max-w-2xl mx-auto">
-            Te damos un precio orientativo realista según viviendas similares
-            en tu zona. Sin compromiso y en menos de un minuto.
+          <p className="mt-3 text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
+            Te mostramos una <span className="font-semibold text-slate-800">horquilla orientativa</span> según
+            viviendas similares en tu zona. Sin compromiso y sin publicar nada.
           </p>
-          <div className="flex flex-wrap gap-3 justify-center mt-4 text-sm text-slate-300">
-            <span className="px-3 py-1 rounded-full border border-slate-700">
-              ✅ Estudio personalizado
-            </span>
-            <span className="px-3 py-1 rounded-full border border-slate-700">
-              ✅ Especialistas en Alcorcón y zona sur
-            </span>
-            <span className="px-3 py-1 rounded-full border border-slate-700">
-              ✅ Sin compromiso de venta
-            </span>
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <span className={pillClass(step >= 1)}>1 · Vivienda</span>
+            <span className={pillClass(step >= 2)}>2 · Contacto</span>
+            <span className={pillClass(step >= 3)}>3 · Resultado</span>
+          </div>
+
+          {/* progress */}
+          <div className="mt-4 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 transition-all"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </header>
 
-        {/* Contenedor principal */}
-        <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-6 md:p-8">
-          {/* Pasos */}
-          <div className="flex justify-center gap-3 mb-8 text-sm">
-            <span className={`px-3 py-1 rounded-full border ${
-              step === 1 ? "border-emerald-400" : "border-slate-700"
-            }`}>
-              1. Datos de la vivienda
-            </span>
-            <span className={`px-3 py-1 rounded-full border ${
-              step === 2 ? "border-emerald-400" : "border-slate-700"
-            }`}>
-              2. Tus datos
-            </span>
-            <span className={`px-3 py-1 rounded-full border ${
-              step === 3 ? "border-emerald-400" : "border-slate-700"
-            }`}>
-              3. Resultado
-            </span>
-          </div>
-
+        {/* Card */}
+        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-5 md:p-8">
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-red-900/50 border border-red-700 text-sm">
+            <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {errorMsg}
             </div>
           )}
 
           {/* STEP 1 */}
           {step === 1 && (
-            <form onSubmit={handleStep1Submit} className="space-y-4">
-              <h2 className="text-lg font-medium mb-2">
-                Cuéntanos sobre tu vivienda
-              </h2>
-              <div className="grid md:grid-cols-2 gap-4">
+            <form onSubmit={handleStep1Submit} className="space-y-5">
+              <div>
+                <h2 className="text-lg font-semibold">Datos de la vivienda</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Cuanto más preciso, más realista será el rango.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <label className="block text-sm mb-1">
-                    Dirección (calle y número)
-                  </label>
+                  <label className={label}>Dirección (calle y número)</label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.address}
-                    onChange={(e) =>
-                      handleStep1Change("address", e.target.value)
-                    }
+                    onChange={(e) => handleStep1Change("address", e.target.value)}
+                    placeholder="Ej: Av. de Portugal 12"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">Municipio</label>
+                  <label className={label}>Municipio</label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.city}
-                    onChange={(e) =>
-                      handleStep1Change("city", e.target.value)
-                    }
+                    onChange={(e) => handleStep1Change("city", e.target.value)}
+                    placeholder="Ej: Alcorcón"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">Tipo de vivienda</label>
+                  <label className={label}>Tipo de vivienda</label>
                   <select
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.type}
-                    onChange={(e) =>
-                      handleStep1Change("type", e.target.value)
-                    }
+                    onChange={(e) => handleStep1Change("type", e.target.value)}
                     required
                   >
-                    <option value="">Selecciona...</option>
+                    <option value="">Selecciona…</option>
                     <option value="piso">Piso</option>
                     <option value="atico">Ático</option>
                     <option value="bajo">Bajo</option>
@@ -275,73 +286,66 @@ export default function ValoraTuViviendaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">
-                    Superficie aproximada (m²)
-                  </label>
+                  <label className={label}>Superficie aprox. (m²)</label>
                   <input
                     type="number"
                     min={20}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.size}
-                    onChange={(e) =>
-                      handleStep1Change("size", e.target.value)
-                    }
+                    onChange={(e) => handleStep1Change("size", e.target.value)}
+                    placeholder="Ej: 78"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">Habitaciones</label>
+                  <label className={label}>Habitaciones</label>
                   <input
                     type="number"
                     min={1}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.bedrooms}
-                    onChange={(e) =>
-                      handleStep1Change("bedrooms", e.target.value)
-                    }
+                    onChange={(e) => handleStep1Change("bedrooms", e.target.value)}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">Baños</label>
+                  <label className={label}>Baños</label>
                   <input
                     type="number"
                     min={1}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.bathrooms}
-                    onChange={(e) =>
-                      handleStep1Change("bathrooms", e.target.value)
-                    }
+                    onChange={(e) => handleStep1Change("bathrooms", e.target.value)}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">
-                    ¿Tiene garaje?
-                  </label>
-                  <div className="flex gap-3 text-sm">
+                  <label className={label}>¿Tiene garaje?</label>
+                  <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleStep1Change("hasGarage", "si")}
-                      className={`px-3 py-2 rounded-xl border ${
+                      className={[
+                        "flex-1 rounded-2xl border px-4 py-3 text-sm font-medium transition",
                         step1.hasGarage === "si"
-                          ? "border-emerald-400 bg-emerald-500/10"
-                          : "border-slate-700"
-                      }`}
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
                     >
                       Sí
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStep1Change("hasGarage", "no")}
-                      className={`px-3 py-2 rounded-xl border ${
+                      className={[
+                        "flex-1 rounded-2xl border px-4 py-3 text-sm font-medium transition",
                         step1.hasGarage === "no"
-                          ? "border-emerald-400 bg-emerald-500/10"
-                          : "border-slate-700"
-                      }`}
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
                     >
                       No
                     </button>
@@ -349,29 +353,29 @@ export default function ValoraTuViviendaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1">
-                    ¿Tiene terraza o balcón?
-                  </label>
-                  <div className="flex gap-3 text-sm">
+                  <label className={label}>¿Terraza o balcón?</label>
+                  <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleStep1Change("hasTerrace", "si")}
-                      className={`px-3 py-2 rounded-xl border ${
+                      className={[
+                        "flex-1 rounded-2xl border px-4 py-3 text-sm font-medium transition",
                         step1.hasTerrace === "si"
-                          ? "border-emerald-400 bg-emerald-500/10"
-                          : "border-slate-700"
-                      }`}
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
                     >
                       Sí
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStep1Change("hasTerrace", "no")}
-                      className={`px-3 py-2 rounded-xl border ${
+                      className={[
+                        "flex-1 rounded-2xl border px-4 py-3 text-sm font-medium transition",
                         step1.hasTerrace === "no"
-                          ? "border-emerald-400 bg-emerald-500/10"
-                          : "border-slate-700"
-                      }`}
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
                     >
                       No
                     </button>
@@ -379,18 +383,16 @@ export default function ValoraTuViviendaPage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm mb-1">
-                    Estado de la vivienda
-                  </label>
+                  <label className={label}>Estado de la vivienda</label>
                   <select
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step1.condition}
                     onChange={(e) =>
                       handleStep1Change("condition", e.target.value as any)
                     }
                     required
                   >
-                    <option value="">Selecciona...</option>
+                    <option value="">Selecciona…</option>
                     <option value="reformar">Para reformar</option>
                     <option value="buen_estado">Buen estado</option>
                     <option value="reformado">Reformado</option>
@@ -399,12 +401,15 @@ export default function ValoraTuViviendaPage() {
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-slate-500">
+                  🔒 No publicamos tu vivienda. Solo calculamos una estimación.
+                </p>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-sm font-medium transition"
+                  className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
                 >
-                  Continuar
+                  Continuar →
                 </button>
               </div>
             </form>
@@ -412,86 +417,85 @@ export default function ValoraTuViviendaPage() {
 
           {/* STEP 2 */}
           {step === 2 && (
-            <form onSubmit={handleStep2Submit} className="space-y-4">
-              <h2 className="text-lg font-medium mb-2">
-                Último paso: te mostramos el rango de precio
-              </h2>
-              <p className="text-sm text-slate-300 mb-4">
-                Déjanos tus datos de contacto. Te mostraremos una estimación
-                orientativa y, si quieres, afinamos el precio contigo por
-                teléfono o WhatsApp.
-              </p>
+            <form onSubmit={handleStep2Submit} className="space-y-5">
+              <div>
+                <h2 className="text-lg font-semibold">Último paso</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Te mostramos el rango orientativo y, si quieres, lo afinamos contigo.
+                </p>
+              </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm mb-1">Nombre</label>
+                  <label className={label}>Nombre</label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step2.name}
-                    onChange={(e) =>
-                      handleStep2Change("name", e.target.value)
-                    }
+                    onChange={(e) => handleStep2Change("name", e.target.value)}
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm mb-1">Teléfono</label>
+                  <label className={label}>Teléfono</label>
                   <input
                     type="tel"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step2.phone}
-                    onChange={(e) =>
-                      handleStep2Change("phone", e.target.value)
-                    }
+                    onChange={(e) => handleStep2Change("phone", e.target.value)}
+                    placeholder="Ej: 617 000 000"
                     required
                   />
                 </div>
+
                 <div className="md:col-span-2">
-                  <label className="block text-sm mb-1">
-                    Email (opcional)
-                  </label>
+                  <label className={label}>Email (opcional)</label>
                   <input
                     type="email"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm"
+                    className={input}
                     value={step2.email}
-                    onChange={(e) =>
-                      handleStep2Change("email", e.target.value)
-                    }
+                    onChange={(e) => handleStep2Change("email", e.target.value)}
+                    placeholder="Ej: tu@email.com"
                   />
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 text-xs text-slate-300 mt-2">
-                <input
-                  id="privacy"
-                  type="checkbox"
-                  className="mt-1"
-                  checked={step2.acceptPrivacy}
-                  onChange={(e) =>
-                    handleStep2Change("acceptPrivacy", e.target.checked)
-                  }
-                />
-                <label htmlFor="privacy">
-                  Acepto la política de privacidad y el tratamiento de mis datos
-                  para recibir esta valoración orientativa de mi vivienda.
-                </label>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    id="privacy"
+                    type="checkbox"
+                    className="mt-1"
+                    checked={step2.acceptPrivacy}
+                    onChange={(e) =>
+                      handleStep2Change("acceptPrivacy", e.target.checked)
+                    }
+                  />
+                  <label htmlFor="privacy" className="text-xs text-slate-600">
+                    Acepto la política de privacidad y el tratamiento de mis datos para
+                    recibir esta valoración orientativa. <span className="font-semibold">Sin compromiso.</span>
+                  </label>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  ✅ Respuesta rápida por WhatsApp o llamada · ✅ Solo zona sur Madrid
+                </p>
               </div>
 
-              <div className="mt-6 flex justify-between">
+              <div className="flex items-center justify-between pt-1">
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-2xl border border-slate-700 text-sm"
+                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
                   onClick={() => setStep(1)}
                 >
-                  Volver atrás
+                  ← Volver
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-sm font-medium transition disabled:opacity-60"
+                  className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition disabled:opacity-60"
                 >
-                  {submitting ? "Calculando..." : "Ver mi precio aproximado"}
+                  {submitting ? "Calculando…" : "Ver mi precio"}
                 </button>
               </div>
             </form>
@@ -500,48 +504,56 @@ export default function ValoraTuViviendaPage() {
           {/* STEP 3 */}
           {step === 3 && result && (
             <div className="space-y-5">
-              <h2 className="text-lg font-medium mb-2">
-                Esta podría ser la horquilla de precio de tu vivienda
-              </h2>
-
-              <p className="text-sm text-slate-300">
-                Según los datos que nos has dado y teniendo en cuenta operaciones
-                similares en tu zona, el precio de mercado aproximado de tu
-                vivienda podría estar entre:
-              </p>
-
-              <div className="p-5 rounded-2xl bg-slate-950 border border-emerald-500/60 text-center">
-                <p className="text-sm text-slate-400 mb-2">
-                  Rango orientativo de venta
-                </p>
-                <p className="text-2xl font-semibold">
-                  {formatPrice(result.minPrice)}{" "}
-                  <span className="text-sm text-slate-400 mx-1">y</span>
-                  {formatPrice(result.maxPrice)}
+              <div>
+                <h2 className="text-lg font-semibold">Tu rango orientativo</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Esto es una estimación inicial. Podemos afinar con una revisión real (altura, vistas, orientación, reformas, etc.).
                 </p>
               </div>
 
-              <p className="text-xs text-slate-400">
-                ⚠️ Esta valoración es aproximada y no sustituye a un
-                informe profesional ni a una visita presencial. Podemos afinar
-                el precio revisando el estado real de la vivienda, altura, vistas,
-                orientación, reformas, IBI, comunidad, etc.
-              </p>
+              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+                <div className="text-xs font-semibold text-emerald-800">
+                  HORQUILLA ORIENTATIVA DE VENTA
+                </div>
+                <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+                  {formatEUR(result.minPrice)}{" "}
+                  <span className="text-base font-medium text-slate-500">—</span>{" "}
+                  {formatEUR(result.maxPrice)}
+                </div>
+                <div className="mt-3 text-xs text-slate-600">
+                  Basado en datos que nos indicaste: {step1.size} m² · {step1.city}
+                </div>
+              </div>
 
-              <div className="mt-4 flex flex-col md:flex-row gap-3">
-                <button className="flex-1 px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-sm font-medium transition">
-                  Quiero una valoración más precisa y gratuita
-                </button>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-600">
+                  ⚠️ Valoración aproximada. No sustituye a un informe profesional ni a una visita presencial.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
                 <a
-                  href="https://wa.me/34617476695" // aquí pones tu WhatsApp
-                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-700 text-sm font-medium text-center"
+                  href={waLink}
+                  onClick={() => fbqTrack("Contact", { source: "valorador_cta" })}
+                  className="rounded-2xl bg-emerald-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
                 >
-                  Escríbenos por WhatsApp
+                  Quiero una valoración más precisa (WhatsApp)
+                </a>
+                <a
+                  href="tel:+34617476695"
+                  onClick={() => fbqTrack("Contact", { source: "valorador_tel" })}
+                  className="rounded-2xl border border-slate-200 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Prefiero llamada
                 </a>
               </div>
             </div>
           )}
         </div>
+
+        <p className="mt-6 text-center text-xs text-slate-500">
+          BKC Home · Alcorcón y zona sur · Transparencia y acompañamiento hasta notaría
+        </p>
       </section>
     </main>
   );
