@@ -1,11 +1,11 @@
+"use client";
+
+import { useEffect, useMemo, useState, FormEvent } from "react";
 import dynamic from "next/dynamic";
 
 const MapPreview = dynamic(() => import("@/app/components/MapPreview"), {
   ssr: false,
 });
-"use client";
-
-import { useEffect, useMemo, useState, FormEvent } from "react";
 
 type PropertyFormStep1 = {
   address: string;
@@ -29,6 +29,14 @@ type ContactFormStep2 = {
 type ValuationResult = {
   minPrice: number;
   maxPrice: number;
+};
+
+type GeoSuggestion = {
+  place_id: string;
+  display_name: string;
+  lat: number;
+  lon: number;
+  address?: any;
 };
 
 function fbqTrack(event: string, params?: Record<string, any>) {
@@ -56,6 +64,7 @@ function pillClass(active: boolean) {
 
 export default function ValoraTuViviendaPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+
   const [step1, setStep1] = useState<PropertyFormStep1>({
     address: "",
     city: "",
@@ -79,18 +88,46 @@ export default function ValoraTuViviendaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // --------- Geocoding / Mapa ----------
+  const [addressQuery, setAddressQuery] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoSuggestions, setGeoSuggestions] = useState<GeoSuggestion[]>([]);
+  const [geoSelected, setGeoSelected] = useState<GeoSuggestion | null>(null);
+  const [showGeo, setShowGeo] = useState(false);
+
   useEffect(() => {
     fbqTrack("ViewContent", { source: "valora-tu-vivienda" });
   }, []);
 
-  const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
+  // Mantener el input visible sincronizado con step1.address
+  useEffect(() => {
+    setAddressQuery(step1.address);
+  }, [step1.address]);
 
-  const waLink = useMemo(() => {
-    const msg = encodeURIComponent(
-      `Hola Nahuel, acabo de hacer el valorador en BKC Home. Mi vivienda está en ${step1.city}, tiene ${step1.size} m². ¿Me puedes dar una valoración más precisa?`
-    );
-    return `https://wa.me/34617476695?text=${msg}`;
-  }, [step1.city, step1.size]);
+  // Buscar sugerencias mientras escribe (sin botón)
+  useEffect(() => {
+    const q = addressQuery.trim();
+    if (q.length < 5) {
+      setGeoSuggestions([]);
+      setGeoLoading(false);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setGeoLoading(true);
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setGeoSuggestions(Array.isArray(data?.results) ? data.results : []);
+      } catch {
+        setGeoSuggestions([]);
+      } finally {
+        setGeoLoading(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(t);
+  }, [addressQuery]);
 
   function handleStep1Change(field: keyof PropertyFormStep1, value: string) {
     setStep1((prev) => ({ ...prev, [field]: value }));
@@ -101,6 +138,21 @@ export default function ValoraTuViviendaPage() {
     value: string | boolean
   ) {
     setStep2((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function selectGeo(s: GeoSuggestion) {
+    setGeoSelected(s);
+    setShowGeo(false);
+
+    const a = s.address || {};
+    const city =
+      a.city || a.town || a.village || a.municipality || a.county || "";
+
+    handleStep1Change("address", s.display_name);
+    if (city) handleStep1Change("city", city);
+
+    setAddressQuery(s.display_name);
+    setGeoSuggestions([]);
   }
 
   function validateStep1(): boolean {
@@ -180,7 +232,6 @@ export default function ValoraTuViviendaPage() {
         return;
       }
 
-      // ✅ Conversión
       fbqTrack("Lead", { source: "valora-tu-vivienda" });
 
       setResult(valuation);
@@ -193,6 +244,15 @@ export default function ValoraTuViviendaPage() {
     }
   }
 
+  const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
+
+  const waLink = useMemo(() => {
+    const msg = encodeURIComponent(
+      `Hola Nahuel, acabo de hacer el valorador en BKC Home. Mi vivienda está en ${step1.city}, tiene ${step1.size} m². ¿Me puedes dar una valoración más precisa?`
+    );
+    return `https://wa.me/34617476695?text=${msg}`;
+  }, [step1.city, step1.size]);
+
   const input =
     "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-300";
 
@@ -201,7 +261,6 @@ export default function ValoraTuViviendaPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900">
       <section className="max-w-3xl mx-auto px-4 py-10 md:py-14">
-        {/* Hero */}
         <header className="text-center mb-8 md:mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
             ✅ Gratis · 1 minuto · Zona Sur Madrid
@@ -210,6 +269,7 @@ export default function ValoraTuViviendaPage() {
           <h1 className="mt-4 text-3xl md:text-4xl font-semibold tracking-tight">
             ¿Cuánto vale tu vivienda hoy?
           </h1>
+
           <p className="mt-3 text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
             Te mostramos una <span className="font-semibold text-slate-800">horquilla orientativa</span> según
             viviendas similares en tu zona. Sin compromiso y sin publicar nada.
@@ -221,7 +281,6 @@ export default function ValoraTuViviendaPage() {
             <span className={pillClass(step >= 3)}>3 · Resultado</span>
           </div>
 
-          {/* progress */}
           <div className="mt-4 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
             <div
               className="h-full bg-emerald-500 transition-all"
@@ -230,7 +289,6 @@ export default function ValoraTuViviendaPage() {
           </div>
         </header>
 
-        {/* Card */}
         <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-5 md:p-8">
           {errorMsg && (
             <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -249,16 +307,75 @@ export default function ValoraTuViviendaPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className={label}>Dirección (calle y número)</label>
+                {/* Dirección + Autocomplete + Mapa */}
+                <div className="md:col-span-2 relative">
+                  <label className={label}>Dirección o Referencia Catastral</label>
+
                   <input
                     type="text"
                     className={input}
-                    value={step1.address}
-                    onChange={(e) => handleStep1Change("address", e.target.value)}
-                    placeholder="Ej: Av. de Portugal 12"
+                    value={addressQuery}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAddressQuery(v);
+                      setShowGeo(true);
+                      setGeoSelected(null);
+                      handleStep1Change("address", v);
+                    }}
+                    onFocus={() => setShowGeo(true)}
+                    onBlur={() => setTimeout(() => setShowGeo(false), 150)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && geoSuggestions.length > 0) {
+                        e.preventDefault();
+                        selectGeo(geoSuggestions[0]);
+                      }
+                    }}
+                    placeholder="Ej: Calle Retablo 11, Alcorcón"
                     required
                   />
+
+                  {(showGeo && (geoLoading || geoSuggestions.length > 0)) && (
+                    <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                      {geoLoading && (
+                        <div className="px-3 py-2 text-xs text-slate-600">
+                          Buscando…
+                        </div>
+                      )}
+
+                      {!geoLoading && geoSuggestions.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-slate-500">
+                          Escribe un poco más (calle + número + ciudad).
+                        </div>
+                      )}
+
+                      {!geoLoading &&
+                        geoSuggestions.map((s) => (
+                          <button
+                            key={s.place_id}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => selectGeo(s)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-t border-slate-100"
+                          >
+                            <div className="text-slate-900">{s.display_name}</div>
+                            <div className="text-xs text-slate-500">
+                              Pulsa para seleccionar
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+
+                  {geoSelected && (
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
+                      <div className="h-44 md:h-52">
+                        <MapPreview lat={geoSelected.lat} lon={geoSelected.lon} />
+                      </div>
+                      <div className="px-3 py-2 text-xs text-slate-600 bg-white border-t border-slate-200">
+                        📍 {geoSelected.display_name}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -479,7 +596,8 @@ export default function ValoraTuViviendaPage() {
                   />
                   <label htmlFor="privacy" className="text-xs text-slate-600">
                     Acepto la política de privacidad y el tratamiento de mis datos para
-                    recibir esta valoración orientativa. <span className="font-semibold">Sin compromiso.</span>
+                    recibir esta valoración orientativa.{" "}
+                    <span className="font-semibold">Sin compromiso.</span>
                   </label>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
