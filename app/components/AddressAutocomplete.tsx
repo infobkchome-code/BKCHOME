@@ -23,8 +23,8 @@ type NominatimItem = {
 };
 
 export type AddressSelection = {
-  label: string;        // corto (Calle X 11)
-  fullAddress: string;  // largo (display_name)
+  label: string;
+  fullAddress: string;
   city?: string;
   postcode?: string;
   lat: number;
@@ -37,7 +37,6 @@ function prettyLabel(item: NominatimItem) {
   const num = a?.house_number;
   if (road && num) return `${road} ${num}`;
   if (road) return road;
-  // fallback: primera parte antes de la coma
   return item.display_name.split(",")[0]?.trim() || item.display_name;
 }
 
@@ -46,17 +45,22 @@ function extractCity(item: NominatimItem) {
   return a?.city || a?.town || a?.village || a?.municipality || a?.suburb;
 }
 
+function isSpain(it: NominatimItem) {
+  const cc = it.address?.country_code?.toLowerCase();
+  if (cc) return cc === "es";
+  // fallback si no viene country_code:
+  return /\bEspaña\b/i.test(it.display_name);
+}
+
 export default function AddressAutocomplete(props: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (sel: AddressSelection) => void;
   placeholder?: string;
   className?: string;
-  labelClassName?: string;
-  countryCode?: string; // default "es"
-  // bounding box (minLon,minLat,maxLon,maxLat) para sesgar a Madrid Sur
+  countryCode?: string; // "es"
   viewbox?: string;
-  bounded?: boolean; // si true, limita resultados al viewbox
+  bounded?: boolean;
 }) {
   const {
     value,
@@ -66,7 +70,7 @@ export default function AddressAutocomplete(props: {
     className,
     countryCode = "es",
     viewbox,
-    bounded = false,
+    bounded = true, // ✅ por defecto estricto al viewbox
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -100,34 +104,22 @@ export default function AddressAutocomplete(props: {
         url.searchParams.set("format", "jsonv2");
         url.searchParams.set("addressdetails", "1");
         url.searchParams.set("limit", "6");
+        url.searchParams.set("dedupe", "1");
         url.searchParams.set("countrycodes", countryCode);
         url.searchParams.set("accept-language", "es");
         url.searchParams.set("q", query);
 
+        // ✅ sesgo/limitación geográfica
         if (viewbox) url.searchParams.set("viewbox", viewbox);
-        if (bounded) url.searchParams.set("bounded", "1");
+        if (viewbox && bounded) url.searchParams.set("bounded", "1");
 
-        const res = await fetch(url.toString(), {
-          signal: ac.signal,
-          headers: {
-            // Nominatim recomienda identificar el cliente; en browser no podemos cambiar User-Agent,
-            // pero esto ayuda un poco:
-            "Accept": "application/json",
-          },
-        });
-
+        const res = await fetch(url.toString(), { signal: ac.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = (await res.json()) as NominatimItem[];
 
-        // Filtro extra por seguridad
-        const filtered = data.filter((it) => {
-          const cc = it.address?.country_code?.toLowerCase();
-          if (cc && cc !== countryCode) return false;
-          // fallback: si por lo que sea no viene country_code, validamos por texto
-          if (!cc && countryCode === "es" && !it.display_name.includes("España")) return false;
-          return true;
-        });
+        // ✅ filtro final: SOLO España
+        const filtered = data.filter(isSpain);
 
         setItems(filtered);
         setOpen(true);
@@ -138,12 +130,11 @@ export default function AddressAutocomplete(props: {
       } finally {
         setLoading(false);
       }
-    }, 280);
+    }, 250);
 
     return () => clearTimeout(t);
   }, [query, countryCode, viewbox, bounded]);
 
-  // cerrar dropdown al click fuera
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!boxRef.current) return;
@@ -166,16 +157,13 @@ export default function AddressAutocomplete(props: {
           placeholder={placeholder}
           className={className}
           autoComplete="off"
-          inputMode="text"
         />
-        <div className="text-xs text-slate-400 min-w-[70px] text-right">
-          {loading ? "Buscando…" : ""}
+        <div className="text-xs text-slate-400 min-w-[80px] text-right">
+          {loading ? "Buscando…" : "España"}
         </div>
       </div>
 
-      {error ? (
-        <div className="mt-2 text-xs text-red-600">{error}</div>
-      ) : null}
+      {error ? <div className="mt-2 text-xs text-red-600">{error}</div> : null}
 
       {open && items.length > 0 && (
         <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
@@ -190,29 +178,21 @@ export default function AddressAutocomplete(props: {
                   <button
                     type="button"
                     className="w-full text-left px-4 py-3 hover:bg-slate-50 transition"
-                    onMouseDown={(e) => {
-                      // importante para que no se cierre antes del click
-                      e.preventDefault();
-                    }}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      const sel: AddressSelection = {
+                      onSelect({
                         label,
                         fullAddress: it.display_name,
                         city,
                         postcode,
                         lat: Number(it.lat),
                         lon: Number(it.lon),
-                      };
-                      onSelect(sel);
+                      });
                       setOpen(false);
                     }}
                   >
-                    <div className="text-sm font-semibold text-slate-900">
-                      {label}
-                    </div>
-                    <div className="text-xs text-slate-500 line-clamp-2">
-                      {it.display_name}
-                    </div>
+                    <div className="text-sm font-semibold text-slate-900">{label}</div>
+                    <div className="text-xs text-slate-500 line-clamp-2">{it.display_name}</div>
                     <div className="mt-1 text-[11px] text-slate-400">
                       {city ? `${city}` : ""}{postcode ? ` · ${postcode}` : ""}
                     </div>
@@ -226,7 +206,7 @@ export default function AddressAutocomplete(props: {
 
       {open && !loading && query.length >= 3 && items.length === 0 && !error && (
         <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg px-4 py-3 text-sm text-slate-600">
-          No encuentro resultados en España. Prueba con “Calle + número” o añade el municipio.
+          No encuentro resultados en España (o fuera de tu zona). Prueba con “calle + número”.
         </div>
       )}
     </div>
