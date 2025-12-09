@@ -194,3 +194,71 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           💬 WhatsApp
         </a>
+
+        {/* FOOTER */}
+        <footer className="mt-16 border-t border-slate-200 bg-white">
+          <div className="max-w-6xl mx-auto px-4 py-8 grid gap-6 md:grid-cols-3">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">BKC Home</div>
+              <p className="text-xs text-slate-600">
+                Inmobiliaria en Alcorcón y zona sur. Venta, compra y apoyo en
+                financiación.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-600">
+              <div className="font-semibold text-slate-900">Enlaces</div>
+              <div className="flex flex-col gap-2">
+                <a className="hover:text-slate-900" href="/vender">
+                  Vender
+                </a>
+                <a className="hover:text-slate-900" href="/comprar">
+                  Comprar
+                </a>
+                <a className="hover:text-slate-900" href="/valora-tu-vivienda">
+                  Valorar vivienda
+                </a>
+                <a className="hover:text-slate-900" href="/contacto">
+                  Contacto
+                </a>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-600">
+              <div className="font-semibold text-slate-900">Legal</div>
+              <div className="flex flex-col gap-2">
+                <a className="hover:text-slate-900" href="/aviso-legal">
+                  Aviso legal
+                </a>
+                <a className="hover:text-slate-900" href="/privacidad">
+                  Política de privacidad
+                </a>
+                <a className="hover:text-slate-900" href="/cookies">
+                  Política de cookies
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200">
+            <div className="max-w-6xl mx-auto px-4 py-4 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-3">
+              <span>
+                © {new Date().getFullYear()} BKC Home. Todos los derechos
+                reservados.
+              </span>
+              <span>
+                <a className="hover:text-slate-900" href="/privacidad">
+                  Privacidad
+                </a>
+                {" · "}
+                <a className="hover:text-slate-900" href="/aviso-legal">
+                  Aviso legal
+                </a>
+              </span>
+            </div>
+          </div>
+        </footer>
+      </body>
+    </html>
+  );
+}
