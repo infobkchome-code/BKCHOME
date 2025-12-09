@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, FormEvent } from "react";
 import dynamic from "next/dynamic";
 
-const MapPreview = dynamic(() => import("@/app/components/MapPreview"), {
+const MapPreview = dynamic(() => import("../components/MapPreview"), {
   ssr: false,
 });
 
