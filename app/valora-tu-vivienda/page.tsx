@@ -151,7 +151,6 @@ export default function ValoraTuViviendaPage() {
 
   // Cargar config desde CRM (fallback si falla)
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_CRM_URL || "https://back.hipotecasbkc.es";
     (async () => {
       try {
         const r = await fetch(`${base}/api/valorador/config`, { cache: "no-store" });
