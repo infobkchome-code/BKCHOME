@@ -31,6 +31,23 @@ type ValuationResult = {
   maxPrice: number;
 };
 
+type ValuationConfig = {
+  conditions: Record<string, number>;
+  modifiers: { garage: number; terrace: number };
+  range: { min: number; max: number };
+};
+
+const DEFAULT_CONFIG: ValuationConfig = {
+  conditions: {
+    reformar: 1400,
+    buen_estado: 1800,
+    reformado: 2100,
+    obra_nueva: 2300,
+  },
+  modifiers: { garage: 0.05, terrace: 0.05 },
+  range: { min: 0.93, max: 1.05 },
+};
+
 type GeoSuggestion = {
   place_id: number | string;
   display_name: string;
@@ -77,12 +94,10 @@ function pillClass(active: boolean) {
 function isSpain(s: GeoSuggestion) {
   const cc = s.address?.country_code?.toLowerCase();
   if (cc) return cc === "es";
-  // fallback si tu API no trae addressdetails
   return /\bEspaña\b/i.test(s.display_name);
 }
 
 function scorePreferZonaSur(s: GeoSuggestion) {
-  // 0 = normal, menor = más arriba (prioridad)
   const state = (s.address?.state || "").toLowerCase();
   const county = (s.address?.county || "").toLowerCase();
   const name = (s.display_name || "").toLowerCase();
@@ -119,6 +134,10 @@ export default function ValoraTuViviendaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // --------- Config remota (€/m²) desde el CRM ----------
+  const [cfg, setCfg] = useState<ValuationConfig>(DEFAULT_CONFIG);
+  const [cfgLoaded, setCfgLoaded] = useState(false);
+
   // --------- Geocoding / Mapa ----------
   const [addressQuery, setAddressQuery] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
@@ -128,6 +147,21 @@ export default function ValoraTuViviendaPage() {
 
   useEffect(() => {
     fbqTrack("ViewContent", { source: "valora-tu-vivienda" });
+  }, []);
+
+  // Cargar config desde CRM (fallback si falla)
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_CRM_URL || "https://back.hipotecasbkc.es";
+    (async () => {
+      try {
+        const r = await fetch(`${base}/api/valorador/config`, { cache: "no-store" });
+        const j = await r.json();
+        if (j?.data) setCfg(j.data);
+        setCfgLoaded(true);
+      } catch {
+        setCfgLoaded(false);
+      }
+    })();
   }, []);
 
   // Sincroniza solo al cargar (y cuando cambias de step por UI)
@@ -149,14 +183,13 @@ export default function ValoraTuViviendaPage() {
       try {
         setGeoLoading(true);
 
-        // ✅ Le pasamos pistas a tu API (aunque no las use, no rompe nada)
+        // Tu API en BKCHOME debería ya filtrar por España (countrycodes=es)
         const url = `/api/geocode?q=${encodeURIComponent(q)}&countrycodes=es&accept_language=es`;
 
         const res = await fetch(url);
         const data = await res.json();
         const raw: GeoSuggestion[] = Array.isArray(data?.results) ? data.results : [];
 
-        // ✅ FILTRO FINAL: solo España + orden preferente Madrid/Toledo
         const filtered = raw
           .filter(isSpain)
           .sort((a, b) => scorePreferZonaSur(a) - scorePreferZonaSur(b));
@@ -176,10 +209,7 @@ export default function ValoraTuViviendaPage() {
     setStep1((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleStep2Change(
-    field: keyof ContactFormStep2,
-    value: string | boolean
-  ) {
+  function handleStep2Change(field: keyof ContactFormStep2, value: string | boolean) {
     setStep2((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -192,8 +222,7 @@ export default function ValoraTuViviendaPage() {
     setShowGeo(false);
 
     const a = s.address || {};
-    const city =
-      a.city || a.town || a.village || a.municipality || a.county || "";
+    const city = a.city || a.town || a.village || a.municipality || a.county || "";
 
     handleStep1Change("address", s.display_name);
     if (city) handleStep1Change("city", city);
@@ -226,29 +255,22 @@ export default function ValoraTuViviendaPage() {
     const m2 = Number(step1.size);
     if (isNaN(m2) || m2 <= 0) return null;
 
-    let pricePerM2 = 1800;
+    const pricePerM2 =
+      cfg.conditions?.[step1.condition] ?? cfg.conditions?.buen_estado ?? 1800;
 
-    switch (step1.condition) {
-      case "reformar":
-        pricePerM2 = 1400;
-        break;
-      case "buen_estado":
-        pricePerM2 = 1800;
-        break;
-      case "reformado":
-        pricePerM2 = 2100;
-        break;
-      case "obra_nueva":
-        pricePerM2 = 2300;
-        break;
-    }
+    const garagePlus =
+      step1.hasGarage === "si" ? (cfg.modifiers?.garage ?? 0.05) : 0;
 
-    let factor = 1;
-    if (step1.hasGarage === "si") factor += 0.05;
-    if (step1.hasTerrace === "si") factor += 0.05;
+    const terracePlus =
+      step1.hasTerrace === "si" ? (cfg.modifiers?.terrace ?? 0.05) : 0;
 
+    const factor = 1 + garagePlus + terracePlus;
     const basePrice = m2 * pricePerM2 * factor;
-    return { minPrice: basePrice * 0.93, maxPrice: basePrice * 1.05 };
+
+    const minMul = cfg.range?.min ?? 0.93;
+    const maxMul = cfg.range?.max ?? 1.05;
+
+    return { minPrice: basePrice * minMul, maxPrice: basePrice * maxMul };
   }
 
   async function handleStep1Submit(e: FormEvent) {
@@ -261,55 +283,58 @@ export default function ValoraTuViviendaPage() {
     setStep(2);
   }
 
- async function handleStep2Submit(e: FormEvent) {
-  e.preventDefault();
-  if (!validateStep2()) {
-    setErrorMsg("Revisa tus datos y acepta la política de privacidad.");
-    return;
-  }
-
-  setErrorMsg(null);
-  setSubmitting(true);
-
-  try {
-    const valuation = calculateValuation();
-    if (!valuation) {
-      setErrorMsg("No hemos podido calcular la valoración. Revisa los m² introducidos.");
-      setSubmitting(false);
+  async function handleStep2Submit(e: FormEvent) {
+    e.preventDefault();
+    if (!validateStep2()) {
+      setErrorMsg("Revisa tus datos y acepta la política de privacidad.");
       return;
     }
 
-    // 👉 Enviar lead al CRM (back.hipotecasbkc.es)
+    setErrorMsg(null);
+    setSubmitting(true);
+
     try {
-      await fetch("https://back.hipotecasbkc.es/api/valorador/bkchome", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          step1,
-          step2,
-          result: valuation,
-        }),
-      });
+      const valuation = calculateValuation();
+      if (!valuation) {
+        setErrorMsg("No hemos podido calcular la valoración. Revisa los m² introducidos.");
+        setSubmitting(false);
+        return;
+      }
+
+      // 👉 Enviar lead al CRM
+      try {
+        const base = process.env.NEXT_PUBLIC_CRM_URL || "https://back.hipotecasbkc.es";
+        await fetch(`${base}/api/valorador/bkchome`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            step1: {
+              ...step1,
+              // opcional: guardamos coords si el usuario seleccionó una sugerencia
+              lat: geoSelected ? Number(geoSelected.lat) : null,
+              lon: geoSelected ? Number(geoSelected.lon) : null,
+            },
+            step2,
+            result: valuation,
+          }),
+        });
+      } catch (err) {
+        console.error("Error enviando lead al CRM", err);
+        // UX no se rompe
+      }
+
+      // Evento de conversión en Meta
+      fbqTrack("Lead", { source: "valora-tu-vivienda" });
+
+      setResult(valuation);
+      setStep(3);
     } catch (err) {
-      console.error("Error enviando lead al CRM", err);
-      // No paramos al usuario: solo lo dejamos en consola
+      console.error(err);
+      setErrorMsg("Ha ocurrido un error. Inténtalo de nuevo en unos minutos.");
+    } finally {
+      setSubmitting(false);
     }
-
-    // Evento de conversión en Meta
-    fbqTrack("Lead", { source: "valora-tu-vivienda" });
-
-    setResult(valuation);
-    setStep(3);
-  } catch (err) {
-    console.error(err);
-    setErrorMsg("Ha ocurrido un error. Inténtalo de nuevo en unos minutos.");
-  } finally {
-    setSubmitting(false);
   }
-}
-
 
   const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
 
@@ -338,8 +363,9 @@ export default function ValoraTuViviendaPage() {
           </h1>
 
           <p className="mt-3 text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
-            Te mostramos una <span className="font-semibold text-slate-800">horquilla orientativa</span> según
-            viviendas similares en tu zona. Sin compromiso y sin publicar nada.
+            Te mostramos una{" "}
+            <span className="font-semibold text-slate-800">horquilla orientativa</span>{" "}
+            según viviendas similares en tu zona. Sin compromiso y sin publicar nada.
           </p>
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -353,6 +379,10 @@ export default function ValoraTuViviendaPage() {
               className="h-full bg-emerald-500 transition-all"
               style={{ width: `${progress}%` }}
             />
+          </div>
+
+          <div className="mt-3 text-xs text-slate-500">
+            {cfgLoaded ? "✅ Precios actualizados (CRM)" : "ℹ️ Usando precios base (fallback)"}
           </div>
         </header>
 
@@ -401,7 +431,10 @@ export default function ValoraTuViviendaPage() {
                     required
                   />
 
-                  {(showGeo && (geoLoading || geoSuggestions.length > 0 || addressQuery.trim().length >= 4)) && (
+                  {(showGeo &&
+                    (geoLoading ||
+                      geoSuggestions.length > 0 ||
+                      addressQuery.trim().length >= 4)) && (
                     <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
                       {geoLoading && (
                         <div className="px-4 py-3 text-xs text-slate-600">
@@ -438,7 +471,10 @@ export default function ValoraTuViviendaPage() {
                   {geoSelected && (
                     <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
                       <div className="h-44 md:h-52">
-                        <MapPreview lat={Number(geoSelected.lat)} lon={Number(geoSelected.lon)} />
+                        <MapPreview
+                          lat={Number(geoSelected.lat)}
+                          lon={Number(geoSelected.lon)}
+                        />
                       </div>
                       <div className="px-3 py-2 text-xs text-slate-600 bg-white border-t border-slate-200">
                         📍 {geoSelected.display_name}
@@ -578,7 +614,9 @@ export default function ValoraTuViviendaPage() {
                   <select
                     className={input}
                     value={step1.condition}
-                    onChange={(e) => handleStep1Change("condition", e.target.value as any)}
+                    onChange={(e) =>
+                      handleStep1Change("condition", e.target.value as any)
+                    }
                     required
                   >
                     <option value="">Selecciona…</option>
@@ -657,7 +695,9 @@ export default function ValoraTuViviendaPage() {
                     type="checkbox"
                     className="mt-1"
                     checked={step2.acceptPrivacy}
-                    onChange={(e) => handleStep2Change("acceptPrivacy", e.target.checked)}
+                    onChange={(e) =>
+                      handleStep2Change("acceptPrivacy", e.target.checked)
+                    }
                   />
                   <label htmlFor="privacy" className="text-xs text-slate-600">
                     Acepto la política de privacidad y el tratamiento de mis datos para
