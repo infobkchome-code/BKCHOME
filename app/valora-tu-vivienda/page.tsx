@@ -111,38 +111,25 @@ function scorePreferZonaSur(s: GeoSuggestion) {
   return 0;
 }
 
-// ✅ UTM completo + url/referrer (si no hay nada, devuelve null)
-function readAttribution() {
-  if (typeof window === "undefined") return null;
+// ✅ UTM: nunca NULL (siempre devuelve al menos { url } y opcional referrer + utm_*)
+function readAttribution(): Record<string, any> {
+  if (typeof window === "undefined") return {};
 
   const sp = new URLSearchParams(window.location.search);
-  const keys = [
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_term",
-    "utm_content",
-    "fbclid",
-    "gclid",
-    "msclkid",
-  ] as const;
 
-  const out: Record<string, string> = {};
-  let any = false;
+  const out: Record<string, any> = {
+    url: window.location.href,
+    referrer: document.referrer || null,
+  };
 
+  const keys = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
   for (const k of keys) {
     const v = sp.get(k);
-    if (v) {
-      out[k] = v;
-      any = true;
-    }
+    if (v) out[k] = v;
   }
 
-  // Siempre útil para trazabilidad
-  out.url = window.location.href;
-  if (document.referrer) out.referrer = document.referrer;
-
-  return any || out.referrer ? out : null;
+  if (out.referrer === null) delete out.referrer;
+  return out;
 }
 
 export default function ValoraTuViviendaPage() {
@@ -222,11 +209,15 @@ export default function ValoraTuViviendaPage() {
     const t = setTimeout(async () => {
       try {
         setGeoLoading(true);
-        const url = `/api/geocode?q=${encodeURIComponent(q)}&countrycodes=es&accept_language=es`;
+        const url = `/api/geocode?q=${encodeURIComponent(
+          q
+        )}&countrycodes=es&accept_language=es`;
 
         const res = await fetch(url);
         const data = await res.json().catch(() => ({}));
-        const raw: GeoSuggestion[] = Array.isArray(data?.results) ? data.results : [];
+        const raw: GeoSuggestion[] = Array.isArray(data?.results)
+          ? data.results
+          : [];
 
         const filtered = raw
           .filter(isSpain)
@@ -247,16 +238,24 @@ export default function ValoraTuViviendaPage() {
     setStep1((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleStep2Change(field: keyof ContactFormStep2, value: string | boolean) {
+  function handleStep2Change(
+    field: keyof ContactFormStep2,
+    value: string | boolean
+  ) {
     setStep2((prev) => ({ ...prev, [field]: value }));
   }
 
   function selectGeo(s: GeoSuggestion) {
-    setGeoSelected({ ...s, lat: Number(s.lat), lon: Number(s.lon) });
+    setGeoSelected({
+      ...s,
+      lat: Number(s.lat),
+      lon: Number(s.lon),
+    });
     setShowGeo(false);
 
     const a = s.address || {};
-    const city = a.city || a.town || a.village || a.municipality || a.county || "";
+    const city =
+      a.city || a.town || a.village || a.municipality || a.county || "";
 
     handleStep1Change("address", s.display_name);
     if (city) handleStep1Change("city", city);
@@ -289,10 +288,16 @@ export default function ValoraTuViviendaPage() {
     const m2 = Number(step1.size);
     if (isNaN(m2) || m2 <= 0) return null;
 
-    const pricePerM2 = cfg.conditions?.[step1.condition] ?? cfg.conditions?.buen_estado ?? 1800;
+    const pricePerM2 =
+      cfg.conditions?.[step1.condition] ??
+      cfg.conditions?.buen_estado ??
+      1800;
 
-    const garagePlus = step1.hasGarage === "si" ? cfg.modifiers?.garage ?? 0.05 : 0;
-    const terracePlus = step1.hasTerrace === "si" ? cfg.modifiers?.terrace ?? 0.05 : 0;
+    const garagePlus =
+      step1.hasGarage === "si" ? cfg.modifiers?.garage ?? 0.05 : 0;
+
+    const terracePlus =
+      step1.hasTerrace === "si" ? cfg.modifiers?.terrace ?? 0.05 : 0;
 
     const factor = 1 + garagePlus + terracePlus;
     const basePrice = m2 * pricePerM2 * factor;
@@ -331,9 +336,9 @@ export default function ValoraTuViviendaPage() {
         return;
       }
 
-      // Enviar lead (BKCHOME -> /api/leads -> CRM)
+      // Enviar lead (misma web -> /api/leads -> reenvía al CRM con secreto)
       try {
-        const utm = readAttribution();
+        const utm = readAttribution(); // ✅ nunca null
 
         await fetch("/api/leads", {
           method: "POST",
@@ -396,7 +401,9 @@ export default function ValoraTuViviendaPage() {
 
           <p className="mt-3 text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
             Te mostramos una{" "}
-            <span className="font-semibold text-slate-800">horquilla orientativa</span>{" "}
+            <span className="font-semibold text-slate-800">
+              horquilla orientativa
+            </span>{" "}
             según viviendas similares en tu zona. Sin compromiso y sin publicar nada.
           </p>
 
@@ -407,11 +414,16 @@ export default function ValoraTuViviendaPage() {
           </div>
 
           <div className="mt-4 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+            <div
+              className="h-full bg-emerald-500 transition-all"
+              style={{ width: `${progress}%` }}
+            />
           </div>
 
           <div className="mt-3 text-xs text-slate-500">
-            {cfgLoaded ? "✅ Precios actualizados (CRM)" : "ℹ️ Usando precios base (fallback)"}
+            {cfgLoaded
+              ? "✅ Precios actualizados (CRM)"
+              : "ℹ️ Usando precios base (fallback)"}
           </div>
         </header>
 
@@ -422,6 +434,7 @@ export default function ValoraTuViviendaPage() {
             </div>
           )}
 
+          {/* STEP 1 */}
           {step === 1 && (
             <form onSubmit={handleStep1Submit} className="space-y-5">
               <div>
@@ -432,6 +445,7 @@ export default function ValoraTuViviendaPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
+                {/* Dirección + Autocomplete + Mapa */}
                 <div className="md:col-span-2 relative">
                   <label className={label}>Dirección o Referencia Catastral</label>
 
@@ -458,15 +472,22 @@ export default function ValoraTuViviendaPage() {
                     required
                   />
 
-                  {(showGeo && (geoLoading || geoSuggestions.length > 0 || addressQuery.trim().length >= 4)) && (
+                  {(showGeo &&
+                    (geoLoading ||
+                      geoSuggestions.length > 0 ||
+                      addressQuery.trim().length >= 4)) && (
                     <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
                       {geoLoading && (
-                        <div className="px-4 py-3 text-xs text-slate-600">Buscando en España…</div>
+                        <div className="px-4 py-3 text-xs text-slate-600">
+                          Buscando en España…
+                        </div>
                       )}
 
                       {!geoLoading && geoSuggestions.length === 0 && (
                         <div className="px-4 py-3 text-xs text-slate-500">
-                          Prueba con <span className="font-semibold">calle + número</span> y, si puedes, la ciudad.
+                          Prueba con{" "}
+                          <span className="font-semibold">calle + número</span> y, si
+                          puedes, la ciudad.
                         </div>
                       )}
 
@@ -479,9 +500,12 @@ export default function ValoraTuViviendaPage() {
                             onClick={() => selectGeo(s)}
                             className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 border-t border-slate-100"
                           >
-                            <div className="text-slate-900 font-medium line-clamp-2">{s.display_name}</div>
+                            <div className="text-slate-900 font-medium line-clamp-2">
+                              {s.display_name}
+                            </div>
                             <div className="mt-1 text-[11px] text-slate-500">
-                              España{s.address?.postcode ? ` · ${s.address.postcode}` : ""}
+                              España
+                              {s.address?.postcode ? ` · ${s.address.postcode}` : ""}
                             </div>
                           </button>
                         ))}
@@ -491,7 +515,10 @@ export default function ValoraTuViviendaPage() {
                   {geoSelected && (
                     <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
                       <div className="h-44 md:h-52">
-                        <MapPreview lat={Number(geoSelected.lat)} lon={Number(geoSelected.lon)} />
+                        <MapPreview
+                          lat={Number(geoSelected.lat)}
+                          lon={Number(geoSelected.lon)}
+                        />
                       </div>
                       <div className="px-3 py-2 text-xs text-slate-600 bg-white border-t border-slate-200">
                         📍 {geoSelected.display_name}
@@ -631,7 +658,9 @@ export default function ValoraTuViviendaPage() {
                   <select
                     className={input}
                     value={step1.condition}
-                    onChange={(e) => handleStep1Change("condition", e.target.value as any)}
+                    onChange={(e) =>
+                      handleStep1Change("condition", e.target.value as any)
+                    }
                     required
                   >
                     <option value="">Selecciona…</option>
@@ -644,7 +673,9 @@ export default function ValoraTuViviendaPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <p className="text-xs text-slate-500">🔒 No publicamos tu vivienda. Solo calculamos una estimación.</p>
+                <p className="text-xs text-slate-500">
+                  🔒 No publicamos tu vivienda. Solo calculamos una estimación.
+                </p>
                 <button
                   type="submit"
                   className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
@@ -655,6 +686,7 @@ export default function ValoraTuViviendaPage() {
             </form>
           )}
 
+          {/* STEP 2 */}
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-5">
               <div>
@@ -707,10 +739,13 @@ export default function ValoraTuViviendaPage() {
                     type="checkbox"
                     className="mt-1"
                     checked={step2.acceptPrivacy}
-                    onChange={(e) => handleStep2Change("acceptPrivacy", e.target.checked)}
+                    onChange={(e) =>
+                      handleStep2Change("acceptPrivacy", e.target.checked)
+                    }
                   />
                   <label htmlFor="privacy" className="text-xs text-slate-600">
-                    Acepto la política de privacidad y el tratamiento de mis datos para recibir esta valoración orientativa.{" "}
+                    Acepto la política de privacidad y el tratamiento de mis datos
+                    para recibir esta valoración orientativa.{" "}
                     <span className="font-semibold">Sin compromiso.</span>
                   </label>
                 </div>
@@ -738,17 +773,21 @@ export default function ValoraTuViviendaPage() {
             </form>
           )}
 
+          {/* STEP 3 */}
           {step === 3 && result && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-lg font-semibold">Tu rango orientativo</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Esto es una estimación inicial. Podemos afinar con una revisión real (altura, vistas, orientación, reformas, etc.).
+                  Esto es una estimación inicial. Podemos afinar con una revisión real
+                  (altura, vistas, orientación, reformas, etc.).
                 </p>
               </div>
 
               <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-                <div className="text-xs font-semibold text-emerald-800">HORQUILLA ORIENTATIVA DE VENTA</div>
+                <div className="text-xs font-semibold text-emerald-800">
+                  HORQUILLA ORIENTATIVA DE VENTA
+                </div>
                 <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
                   {formatEUR(result.minPrice)}{" "}
                   <span className="text-base font-medium text-slate-500">—</span>{" "}
@@ -761,7 +800,8 @@ export default function ValoraTuViviendaPage() {
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="text-xs text-slate-600">
-                  ⚠️ Valoración aproximada. No sustituye a un informe profesional ni a una visita presencial.
+                  ⚠️ Valoración aproximada. No sustituye a un informe profesional ni a
+                  una visita presencial.
                 </p>
               </div>
 
