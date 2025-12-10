@@ -261,35 +261,55 @@ export default function ValoraTuViviendaPage() {
     setStep(2);
   }
 
-  async function handleStep2Submit(e: FormEvent) {
-    e.preventDefault();
-    if (!validateStep2()) {
-      setErrorMsg("Revisa tus datos y acepta la política de privacidad.");
+ async function handleStep2Submit(e: FormEvent) {
+  e.preventDefault();
+  if (!validateStep2()) {
+    setErrorMsg("Revisa tus datos y acepta la política de privacidad.");
+    return;
+  }
+
+  setErrorMsg(null);
+  setSubmitting(true);
+
+  try {
+    const valuation = calculateValuation();
+    if (!valuation) {
+      setErrorMsg("No hemos podido calcular la valoración. Revisa los m² introducidos.");
+      setSubmitting(false);
       return;
     }
 
-    setErrorMsg(null);
-    setSubmitting(true);
-
+    // 👉 Enviar lead al CRM (back.hipotecasbkc.es)
     try {
-      const valuation = calculateValuation();
-      if (!valuation) {
-        setErrorMsg("No hemos podido calcular la valoración. Revisa los m² introducidos.");
-        setSubmitting(false);
-        return;
-      }
-
-      fbqTrack("Lead", { source: "valora-tu-vivienda" });
-
-      setResult(valuation);
-      setStep(3);
+      await fetch("https://back.hipotecasbkc.es/api/valorador/bkchome", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          step1,
+          step2,
+          result: valuation,
+        }),
+      });
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Ha ocurrido un error. Inténtalo de nuevo en unos minutos.");
-    } finally {
-      setSubmitting(false);
+      console.error("Error enviando lead al CRM", err);
+      // No paramos al usuario: solo lo dejamos en consola
     }
+
+    // Evento de conversión en Meta
+    fbqTrack("Lead", { source: "valora-tu-vivienda" });
+
+    setResult(valuation);
+    setStep(3);
+  } catch (err) {
+    console.error(err);
+    setErrorMsg("Ha ocurrido un error. Inténtalo de nuevo en unos minutos.");
+  } finally {
+    setSubmitting(false);
   }
+}
+
 
   const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
 
