@@ -102,7 +102,6 @@ function scorePreferZonaSur(s: GeoSuggestion) {
   const county = (s.address?.county || "").toLowerCase();
   const name = (s.display_name || "").toLowerCase();
 
-  // Preferimos Madrid y Toledo (sin bloquear el resto de España)
   if (state.includes("comunidad de madrid") || name.includes("madrid")) return -20;
   if (county.includes("toledo") || name.includes("toledo")) return -10;
   return 0;
@@ -134,7 +133,7 @@ export default function ValoraTuViviendaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // --------- Config remota (€/m²) desde el CRM ----------
+  // --------- Config remota (€/m²) ----------
   const [cfg, setCfg] = useState<ValuationConfig>(DEFAULT_CONFIG);
   const [cfgLoaded, setCfgLoaded] = useState(false);
 
@@ -149,27 +148,31 @@ export default function ValoraTuViviendaPage() {
     fbqTrack("ViewContent", { source: "valora-tu-vivienda" });
   }, []);
 
-  // Cargar config desde CRM (fallback si falla)
+  // ✅ Cargar config (desde tu propio endpoint /api/valorador/config)
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`${base}/api/valorador/config`, { cache: "no-store" });
+        const r = await fetch(`/api/valorador/config`, { cache: "no-store" });
         const j = await r.json();
-        if (j?.data) setCfg(j.data);
-        setCfgLoaded(true);
+        if (j?.data) {
+          setCfg(j.data);
+          setCfgLoaded(true);
+        } else {
+          setCfgLoaded(false);
+        }
       } catch {
         setCfgLoaded(false);
       }
     })();
   }, []);
 
-  // Sincroniza solo al cargar (y cuando cambias de step por UI)
+  // Sincroniza el input con step1.address solo si el input está vacío
   useEffect(() => {
     if (!addressQuery && step1.address) setAddressQuery(step1.address);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step1.address]);
 
-  // Buscar sugerencias mientras escribe (sin botón)
+  // Buscar sugerencias mientras escribe
   useEffect(() => {
     const q = addressQuery.trim();
     if (q.length < 4) {
@@ -182,8 +185,9 @@ export default function ValoraTuViviendaPage() {
       try {
         setGeoLoading(true);
 
-        // Tu API en BKCHOME debería ya filtrar por España (countrycodes=es)
-        const url = `/api/geocode?q=${encodeURIComponent(q)}&countrycodes=es&accept_language=es`;
+        const url = `/api/geocode?q=${encodeURIComponent(
+          q
+        )}&countrycodes=es&accept_language=es`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -257,11 +261,8 @@ export default function ValoraTuViviendaPage() {
     const pricePerM2 =
       cfg.conditions?.[step1.condition] ?? cfg.conditions?.buen_estado ?? 1800;
 
-    const garagePlus =
-      step1.hasGarage === "si" ? (cfg.modifiers?.garage ?? 0.05) : 0;
-
-    const terracePlus =
-      step1.hasTerrace === "si" ? (cfg.modifiers?.terrace ?? 0.05) : 0;
+    const garagePlus = step1.hasGarage === "si" ? (cfg.modifiers?.garage ?? 0.05) : 0;
+    const terracePlus = step1.hasTerrace === "si" ? (cfg.modifiers?.terrace ?? 0.05) : 0;
 
     const factor = 1 + garagePlus + terracePlus;
     const basePrice = m2 * pricePerM2 * factor;
@@ -300,29 +301,29 @@ export default function ValoraTuViviendaPage() {
         return;
       }
 
-      // 👉 Enviar lead al CRM
+      // 👉 Enviar lead (BKCHOME -> /api/leads -> CRM webhook)
       try {
-        const base = process.env.NEXT_PUBLIC_CRM_URL || "https://back.hipotecasbkc.es";
-       await fetch("/api/leads", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    source: "bkchome_valorador",
-    step1,
-    step2,
-    result: valuation,
-    geo: geoSelected
-      ? { lat: Number(geoSelected.lat), lon: Number(geoSelected.lon), display_name: geoSelected.display_name }
-      : null,
-  }),
-});
-
+        await fetch("/api/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source: "bkchome_valorador",
+            step1,
+            step2,
+            result: valuation,
+            geo: geoSelected
+              ? {
+                  lat: Number(geoSelected.lat),
+                  lon: Number(geoSelected.lon),
+                  display_name: geoSelected.display_name,
+                }
+              : null,
+          }),
+        });
       } catch (err) {
         console.error("Error enviando lead al CRM", err);
-        // UX no se rompe
       }
 
-      // Evento de conversión en Meta
       fbqTrack("Lead", { source: "valora-tu-vivienda" });
 
       setResult(valuation);
@@ -374,10 +375,7 @@ export default function ValoraTuViviendaPage() {
           </div>
 
           <div className="mt-4 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
           </div>
 
           <div className="mt-3 text-xs text-slate-500">
@@ -431,14 +429,10 @@ export default function ValoraTuViviendaPage() {
                   />
 
                   {(showGeo &&
-                    (geoLoading ||
-                      geoSuggestions.length > 0 ||
-                      addressQuery.trim().length >= 4)) && (
+                    (geoLoading || geoSuggestions.length > 0 || addressQuery.trim().length >= 4)) && (
                     <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
                       {geoLoading && (
-                        <div className="px-4 py-3 text-xs text-slate-600">
-                          Buscando en España…
-                        </div>
+                        <div className="px-4 py-3 text-xs text-slate-600">Buscando en España…</div>
                       )}
 
                       {!geoLoading && geoSuggestions.length === 0 && (
@@ -456,9 +450,7 @@ export default function ValoraTuViviendaPage() {
                             onClick={() => selectGeo(s)}
                             className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 border-t border-slate-100"
                           >
-                            <div className="text-slate-900 font-medium line-clamp-2">
-                              {s.display_name}
-                            </div>
+                            <div className="text-slate-900 font-medium line-clamp-2">{s.display_name}</div>
                             <div className="mt-1 text-[11px] text-slate-500">
                               España{s.address?.postcode ? ` · ${s.address.postcode}` : ""}
                             </div>
@@ -470,10 +462,7 @@ export default function ValoraTuViviendaPage() {
                   {geoSelected && (
                     <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
                       <div className="h-44 md:h-52">
-                        <MapPreview
-                          lat={Number(geoSelected.lat)}
-                          lon={Number(geoSelected.lon)}
-                        />
+                        <MapPreview lat={Number(geoSelected.lat)} lon={Number(geoSelected.lon)} />
                       </div>
                       <div className="px-3 py-2 text-xs text-slate-600 bg-white border-t border-slate-200">
                         📍 {geoSelected.display_name}
@@ -613,9 +602,7 @@ export default function ValoraTuViviendaPage() {
                   <select
                     className={input}
                     value={step1.condition}
-                    onChange={(e) =>
-                      handleStep1Change("condition", e.target.value as any)
-                    }
+                    onChange={(e) => handleStep1Change("condition", e.target.value as any)}
                     required
                   >
                     <option value="">Selecciona…</option>
@@ -628,9 +615,7 @@ export default function ValoraTuViviendaPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <p className="text-xs text-slate-500">
-                  🔒 No publicamos tu vivienda. Solo calculamos una estimación.
-                </p>
+                <p className="text-xs text-slate-500">🔒 No publicamos tu vivienda. Solo calculamos una estimación.</p>
                 <button
                   type="submit"
                   className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
@@ -694,14 +679,11 @@ export default function ValoraTuViviendaPage() {
                     type="checkbox"
                     className="mt-1"
                     checked={step2.acceptPrivacy}
-                    onChange={(e) =>
-                      handleStep2Change("acceptPrivacy", e.target.checked)
-                    }
+                    onChange={(e) => handleStep2Change("acceptPrivacy", e.target.checked)}
                   />
                   <label htmlFor="privacy" className="text-xs text-slate-600">
-                    Acepto la política de privacidad y el tratamiento de mis datos para
-                    recibir esta valoración orientativa.{" "}
-                    <span className="font-semibold">Sin compromiso.</span>
+                    Acepto la política de privacidad y el tratamiento de mis datos para recibir esta valoración
+                    orientativa. <span className="font-semibold">Sin compromiso.</span>
                   </label>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
@@ -734,14 +716,13 @@ export default function ValoraTuViviendaPage() {
               <div>
                 <h2 className="text-lg font-semibold">Tu rango orientativo</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Esto es una estimación inicial. Podemos afinar con una revisión real (altura, vistas, orientación, reformas, etc.).
+                  Esto es una estimación inicial. Podemos afinar con una revisión real (altura, vistas, orientación,
+                  reformas, etc.).
                 </p>
               </div>
 
               <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-                <div className="text-xs font-semibold text-emerald-800">
-                  HORQUILLA ORIENTATIVA DE VENTA
-                </div>
+                <div className="text-xs font-semibold text-emerald-800">HORQUILLA ORIENTATIVA DE VENTA</div>
                 <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
                   {formatEUR(result.minPrice)}{" "}
                   <span className="text-base font-medium text-slate-500">—</span>{" "}
