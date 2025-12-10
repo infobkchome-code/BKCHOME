@@ -304,20 +304,20 @@ export default function ValoraTuViviendaPage() {
       // 👉 Enviar lead al CRM
       try {
         const base = process.env.NEXT_PUBLIC_CRM_URL || "https://back.hipotecasbkc.es";
-        await fetch(`${base}/api/valorador/bkchome`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            step1: {
-              ...step1,
-              // opcional: guardamos coords si el usuario seleccionó una sugerencia
-              lat: geoSelected ? Number(geoSelected.lat) : null,
-              lon: geoSelected ? Number(geoSelected.lon) : null,
-            },
-            step2,
-            result: valuation,
-          }),
-        });
+       await fetch("/api/leads", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    source: "bkchome_valorador",
+    step1,
+    step2,
+    result: valuation,
+    geo: geoSelected
+      ? { lat: Number(geoSelected.lat), lon: Number(geoSelected.lon), display_name: geoSelected.display_name }
+      : null,
+  }),
+});
+
       } catch (err) {
         console.error("Error enviando lead al CRM", err);
         // UX no se rompe
